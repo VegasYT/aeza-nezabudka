@@ -2,8 +2,9 @@ import { periodLabel } from '@entities/recurring-payment';
 import type { AuditEntry, Currency, Department, Period } from '@shared/api';
 import { ROLE_LABELS } from '@shared/auth';
 import { formatDate, formatMomentTime } from '@shared/lib/dates';
+import { formatFileSize } from '@shared/lib/files';
 import { formatMoney } from '@shared/lib/money';
-import { plural, pluralWord } from '@shared/lib/plural';
+import { formatDays, plural, pluralWord } from '@shared/lib/plural';
 
 import { userAgentLabel } from './user-agent';
 
@@ -22,6 +23,7 @@ export type EntryKind =
 	| 'memberAdd'
 	| 'chat'
 	| 'postpone'
+	| 'receipt'
 	| 'other';
 
 /** Строка подробностей; `hint` - полный текст для подсказки, когда в строке он сокращён. */
@@ -74,6 +76,17 @@ function money(snapshot: Details) {
 		: null;
 }
 
+// Окно напоминаний: «за 3 дня», 0 - «в день срока»; `null` - окна в снимке нет.
+function reminderWindow(snapshot: Details) {
+	const days = snapshot.reminderDaysBefore;
+
+	if (typeof days !== 'number') {
+		return null;
+	}
+
+	return days === 0 ? 'в\u00a0день срока' : `за\u00a0${formatDays(days)}`;
+}
+
 function departmentOf(snapshot: Details) {
 	return text(snapshot.departmentName) ?? 'без отдела';
 }
@@ -94,6 +107,12 @@ function paymentChanges(before: Details, after: Details) {
 			day(after.scheduleFirstDueDate)
 		),
 		...change('Периодичность', schedule(before), schedule(after)),
+		// Без своего окна у платежа (и в старых записях) действует общее.
+		...change(
+			'Напоминание',
+			reminderWindow(before) ?? 'как у\u00a0всех',
+			reminderWindow(after) ?? 'как у\u00a0всех'
+		),
 		...change('Отдел', departmentOf(before), departmentOf(after)),
 	];
 }
@@ -238,6 +257,7 @@ export function describeEntry(
 
 		case 'payment.created': {
 			const department = text(details.departmentName);
+			const reminder = reminderWindow(details);
 
 			return {
 				kind: 'create',
@@ -246,7 +266,60 @@ export function describeEntry(
 				objectNote: 'регулярный платёж',
 				details: [
 					[money(details), schedule(details)].filter(Boolean).join(', '),
+					...(reminder ? [`Напоминание: ${reminder}`] : []),
 					...(department ? [`Отдел: ${department}`] : []),
+				],
+			};
+		}
+
+		case 'receipt.attached': {
+			const file = text(details.fileName);
+			const via = details.source === 'telegram' ? ' через Telegram' : '';
+
+			return {
+				kind: 'receipt',
+				action: `${details.replaced === true ? 'Замена' : 'Загрузка'} чека${via}`,
+				object: name,
+				objectNote: 'чек оплаты',
+				details: file
+					? [
+							typeof details.size === 'number'
+								? `${file}, ${formatFileSize(details.size)}`
+								: file,
+						]
+					: [],
+			};
+		}
+
+		case 'receipt.deleted': {
+			const file = text(details.fileName);
+
+			return {
+				kind: 'receipt',
+				action: 'Удаление чека',
+				object: name,
+				objectNote: 'чек оплаты',
+				details: file ? [file] : [],
+			};
+		}
+
+		case 'settings.updated': {
+			const before = (details.before ?? {}) as Details;
+			const after = (details.after ?? {}) as Details;
+
+			return {
+				kind: 'edit',
+				action: 'Изменение настроек',
+				object: name ?? 'Окно напоминаний',
+				objectNote: 'для всех платежей',
+				details: [
+					...change(
+						'Напоминание',
+						reminderWindow(before),
+						reminderWindow(after)
+					),
+					// Окно вернули к значению из настроек сервера.
+					...(after.fromServerSettings === true ? ['Как на сервере'] : []),
 				],
 			};
 		}

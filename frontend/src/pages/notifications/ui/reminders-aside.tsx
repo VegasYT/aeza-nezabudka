@@ -56,6 +56,8 @@ export function RemindersAside({
 					<Text size='sm' c='dimmed'>
 						Одинаково во&nbsp;всех чатах. О&nbsp;каждом сроке бот пишет
 						не&nbsp;больше двух раз.
+						{settings.receiptsEnabled &&
+							' Чтобы приложить чек, ответьте файлом на\u00a0сообщение бота.'}
 					</Text>
 				</div>
 				{[dueSoon, overdue].map((sample) => (

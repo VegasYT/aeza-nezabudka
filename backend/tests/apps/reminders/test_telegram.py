@@ -14,6 +14,7 @@ from aiogram.types import Update
 from apps.reminders.telegram import (
     ERROR_LIMIT,
     ChatBlocked,
+    IncomingFile,
     IncomingMessage,
     PermanentDeliveryError,
     TelegramNotifier,
@@ -105,7 +106,7 @@ def test_incoming_reads_message_and_bot_membership() -> None:
     )
 
     assert _incoming(message) == IncomingMessage(
-        1, -100501, "supergroup", "buh", "/start@bot code", "Бухгалтерия", "Ирина"
+        1, -100501, "supergroup", "buh", "/start@bot code", "Бухгалтерия", "Ирина", from_id=5
     )
     renamed = Update.model_validate(
         {
@@ -152,3 +153,60 @@ def test_incoming_reads_message_and_bot_membership() -> None:
     assert renamed_message.new_title == "Бухгалтерия 2026"
     assert removed_message.member_status == "kicked"
     assert removed_message.text is None
+
+
+def test_incoming_reads_reply_with_file() -> None:
+    def reply(attachment: dict[str, object]) -> Update:
+        return Update.model_validate(
+            {
+                "update_id": 4,
+                "message": {
+                    "message_id": 9,
+                    "date": 0,
+                    "chat": {"id": -100501, "type": "supergroup", "title": "Бухгалтерия"},
+                    "from": {"id": 5, "is_bot": False, "first_name": "Ирина"},
+                    "reply_to_message": {
+                        "message_id": 3,
+                        "date": 0,
+                        "chat": {"id": -100501, "type": "supergroup"},
+                        "text": "Напоминание",
+                    },
+                    **attachment,
+                },
+            }
+        )
+
+    document = _incoming(
+        reply(
+            {
+                "document": {
+                    "file_id": "d1",
+                    "file_unique_id": "u1",
+                    "file_name": "чек.pdf",
+                    "file_size": 2048,
+                }
+            }
+        )
+    )
+    photo = _incoming(
+        reply(
+            {
+                "photo": [
+                    {"file_id": "small", "file_unique_id": "s", "width": 90, "height": 90},
+                    {
+                        "file_id": "big",
+                        "file_unique_id": "b",
+                        "width": 1280,
+                        "height": 1280,
+                        "file_size": 90000,
+                    },
+                ]
+            }
+        )
+    )
+
+    assert isinstance(document, IncomingMessage)
+    assert isinstance(photo, IncomingMessage)
+    assert (document.reply_to, document.from_id) == (3, 5)
+    assert document.file == IncomingFile("d1", "чек.pdf", 2048)
+    assert photo.file == IncomingFile("big", None, 90000)

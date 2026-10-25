@@ -34,6 +34,7 @@ function payment(name: string, departmentId: string): RecurringPayment {
 		period: 'month',
 		periodCount: 1,
 		occurrenceLimit: null,
+		reminderDaysBefore: null,
 		paidOccurrences: 0,
 		completed: false,
 		anchorDay: 5,

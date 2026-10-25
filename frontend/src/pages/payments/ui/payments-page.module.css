@@ -400,6 +400,12 @@
 	font-size: var(--mantine-font-size-sm);
 }
 
+.phoneCardTools {
+	display: flex;
+	flex: none;
+	gap: rem(4px);
+}
+
 .phoneActions {
 	display: flex;
 	gap: rem(6px);
@@ -472,4 +478,28 @@
 	border: 1px dashed var(--nz-ink-4);
 	background-color: transparent;
 	box-shadow: none;
+}
+
+/* Окно чека: имя файла и сведения, картинка целиком в пределах окна. */
+.receiptMeta {
+	display: flex;
+	flex-direction: column;
+	gap: rem(2px);
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.receiptImage {
+	display: block;
+	max-width: 100%;
+	max-height: 60vh;
+	margin-inline: auto;
+	border-radius: rem(8px);
+	background-color: var(--nz-inset);
+	object-fit: contain;
+}
+
+.receiptLink {
+	align-self: flex-start;
+	overflow-wrap: anywhere;
 }

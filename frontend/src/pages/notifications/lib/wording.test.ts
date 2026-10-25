@@ -1,20 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { chatLabel, dueSoonTiming, reminderSamples } from './wording';
+import { chatLabel, reminderSamples } from './wording';
 
 // toBe сравнивает строки как есть: неразрывные пробелы в ожиданиях обычные, поэтому сводим.
 const plain = (text: string) => text.replaceAll('\u00a0', ' ');
-
-describe('окно напоминания', () => {
-	it.each([
-		[3, 'за 3 дня до срока'],
-		[1, 'за 1 день до срока'],
-		[5, 'за 5 дней до срока'],
-		[0, 'в день срока'],
-	])('%i - «%s»', (days, expected) => {
-		expect(plain(dueSoonTiming(days))).toBe(expected);
-	});
-});
 
 describe('образцы напоминаний в формате бота', () => {
 	it('до срока и просрочка от сегодня сервера', () => {

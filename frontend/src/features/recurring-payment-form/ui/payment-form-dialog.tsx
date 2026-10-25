@@ -16,10 +16,13 @@ import {
 	anchorNote,
 	CURRENCY_NAMES,
 	dayOf,
+	isReminderWindow,
 	lastDue,
 	nextDuesHint,
 	overdueDueDate,
 	periodWord,
+	REMINDER_MAX,
+	reminderTiming,
 	type Schedule,
 	useRefreshRecurring,
 } from '@entities/recurring-payment';
@@ -222,6 +225,16 @@ function PaymentForm({
 	const amountBefore = payment
 		? formatMoney(payment.amountMinor, payment.currency)
 		: null;
+	// Пока в поле не окно (пусто или вводится), действует общее окно.
+	const reminderWindow = isReminderWindow(values.reminderDaysBefore)
+		? Number(values.reminderDaysBefore)
+		: reminderDaysBefore;
+	const reminderHint =
+		values.reminderDaysBefore === ''
+			? `Пусто: как у\u00a0всех платежей, ${reminderTiming(reminderDaysBefore)}`
+			: values.reminderDaysBefore === 0
+				? 'В\u00a0день срока'
+				: undefined;
 
 	const clearServerError = (name: keyof FormValues) =>
 		setServerErrors((errors) => ({ ...errors, [name]: undefined }));
@@ -403,7 +416,7 @@ function PaymentForm({
 						className={classes.wide}
 						today={today}
 						date={dateChanged ? values.nextDueDate : ''}
-						reminderDaysBefore={reminderDaysBefore}
+						reminderDaysBefore={reminderWindow}
 						after='сохранения'
 					/>
 					<form.Field name='occurrenceLimit'>
@@ -429,9 +442,32 @@ function PaymentForm({
 							/>
 						)}
 					</form.Field>
+					<form.Field name='reminderDaysBefore'>
+						{(field) => (
+							<NumberInput
+								label='Напоминать за, дней'
+								placeholder='Как у всех'
+								hideControls={phone}
+								min={0}
+								max={REMINDER_MAX}
+								allowDecimal={false}
+								allowNegative={false}
+								value={field.state.value}
+								onChange={(value) => {
+									clearServerError('reminderDaysBefore');
+									field.handleChange(value);
+								}}
+								onBlur={field.handleBlur}
+								error={fieldError(field) ?? serverErrors.reminderDaysBefore}
+								description={reminderHint}
+								inputWrapperOrder={['label', 'input', 'description', 'error']}
+							/>
+						)}
+					</form.Field>
 					<form.Field name='departmentId'>
 						{(field) => (
 							<Select
+								className={classes.wide}
 								label='Отдел'
 								allowDeselect={false}
 								data={[

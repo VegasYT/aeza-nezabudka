@@ -1,17 +1,11 @@
+import { reminderTiming } from '@entities/recurring-payment';
 import type { Department, GroupChat } from '@shared/api';
 import { addDays, type CalendarDate, formatDate } from '@shared/lib/dates';
 import { formatDays } from '@shared/lib/plural';
 
-/** Когда приходит напоминание до срока: «за 3 дня до срока», при окне 0 - «в день срока». */
-export function dueSoonTiming(daysBefore: number) {
-	return daysBefore > 0
-		? `за\u00a0${formatDays(daysBefore)} до\u00a0срока`
-		: 'в\u00a0день срока';
-}
-
 /** Когда приходят напоминания: «за 3 дня до срока и в первый день просрочки». */
 export function reminderTimes(daysBefore: number) {
-	return `${dueSoonTiming(daysBefore)} и\u00a0в\u00a0первый день просрочки`;
+	return `${reminderTiming(daysBefore)} и\u00a0в\u00a0первый день просрочки`;
 }
 
 /** Образцы сообщений бота в его формате: даты от «сегодня» сервера, платежи для примера. */
@@ -23,7 +17,7 @@ export function reminderSamples(today: CalendarDate, daysBefore: number) {
 
 	return {
 		dueSoon: {
-			caption: `${formatDate(today)}, ${dueSoonTiming(daysBefore)}`,
+			caption: `${formatDate(today)}, ${reminderTiming(daysBefore)}`,
 			text: `Напоминание: ${when}. Сервер (ИТ) - 25,00\u00a0USD, срок ${formatDate(addDays(today, daysBefore))}`,
 		},
 		overdue: {

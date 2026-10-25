@@ -1,4 +1,4 @@
-import type { PaymentOccurrence } from '@shared/api';
+import type { PaymentOccurrence, PaymentRef } from '@shared/api';
 import { type CalendarDate, daysBetween } from '@shared/lib/dates';
 import { formatDays } from '@shared/lib/plural';
 
@@ -17,11 +17,14 @@ export interface OccurrenceStatus {
 type StatusSource = Pick<
 	PaymentOccurrence,
 	'dueDate' | 'paid' | 'overdue' | 'daysOverdue'
->;
+> & {
+	recurringPayment: Pick<PaymentRef, 'reminderDaysBefore'>;
+};
 
 /**
  * Статус периода по словарю макетов. Просрочку считает сервер (`overdue`, `daysOverdue`),
- * здесь только дни до срока от сегодня сервера.
+ * здесь только дни до срока от сегодня сервера. «Скоро срок» - в окне напоминания платежа,
+ * а без своего окна - в общем `reminderDaysBefore`, как у бота.
  */
 export function occurrenceStatus(
 	occurrence: StatusSource,
@@ -52,7 +55,10 @@ export function occurrenceStatus(
 
 	const daysLeft = daysBetween(today, occurrence.dueDate);
 
-	if (daysLeft <= reminderDaysBefore) {
+	if (
+		daysLeft <=
+		(occurrence.recurringPayment.reminderDaysBefore ?? reminderDaysBefore)
+	) {
 		const label =
 			daysLeft <= 0
 				? 'Срок сегодня'

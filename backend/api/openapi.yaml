@@ -1047,8 +1047,8 @@ paths:
       tags:
       - Периоды оплаты
       summary: Отметить, исправить или отменить оплату
-      description: paid=true отмечает оплату или исправляет фактическую дату, paid=false отменяет отметку
-        и очищает дату. Срок периода не меняется.
+      description: paid=true отмечает оплату или исправляет фактическую дату, paid=false отменяет отметку,
+        очищает дату и удаляет чек. Срок периода не меняется.
       operationId: update_payment_occurrence
       security:
       - bearer: []
@@ -1088,6 +1088,199 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences/{occurrence_id}/receipt:
+    put:
+      tags:
+      - Периоды оплаты
+      summary: Приложить чек оплаты
+      description: 'Файл в поле `file` (multipart): PDF, JPEG, PNG или WebP до 10 МБ, тип определяется
+        по содержимому. Только к оплаченному периоду (иначе 409 `occurrence_not_paid`); новый чек заменяет
+        прежний. Без хранилища - 409 `receipts_disabled`, хранилище недоступно - 503 `storage_unavailable`.
+        Все роли.'
+      operationId: attach_receipt
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: occurrence_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Occurrence Id
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_attach_receipt'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOccurrence'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис входа Aéza временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Периоды оплаты
+      summary: Файл чека оплаты
+      description: Отдаёт файл с его типом и именем; без чека - 404. Все роли.
+      operationId: get_receipt
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: occurrence_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Occurrence Id
+      responses:
+        '200':
+          description: Файл чека
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис входа Aéza временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Периоды оплаты
+      summary: Удалить чек оплаты
+      description: Без чека - 404. Все роли.
+      operationId: delete_receipt
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: occurrence_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Occurrence Id
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
           content:
             application/json:
               schema:
@@ -2061,6 +2254,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/events:
+    get:
+      tags:
+      - События
+      summary: Поток событий
+      description: 'Server-Sent Events: панель узнаёт об изменениях сразу, данные перечитывает обычными
+        запросами.
+
+
+        - `ready` - поток открыт: перечитать данные, если это переподключение;
+
+        - `change` - что-то изменилось, `data`: `type` (действие журнала, например `occurrence.paid`,
+        или `telegram.changed` - своя привязка Telegram), `entityType`, `entityId`, `entityName`, `actorLogin`;
+
+        - `resync` - события могли потеряться: перечитать всё.
+
+
+        Платежи, периоды и отделы видят все роли; участников, входы и групповые чаты - администратор и
+        сам участник. Пинг-комментарий раз в 15 секунд. Авторизация обычная: `Authorization` или `X-API-KEY`.
+        Сервер закрывает поток раз в 10 минут и после события о самом участнике (роль, отключение, выход):
+        клиент переподключается, и доступ проверяется заново.'
+      operationId: stream_events
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/event-stream:
+              itemSchema:
+                type: object
+                properties:
+                  data:
+                    type: string
+                  event:
+                    type: string
+                  id:
+                    type: string
+                  retry:
+                    type: integer
+                    minimum: 0
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
   /api/v1/settings:
     get:
       tags:
@@ -2081,6 +2322,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+    patch:
+      tags:
+      - Система
+      summary: Изменить настройки системы
+      description: Общее окно напоминаний, 0-30 дней; у платежа может быть своё. Действует без перезапуска,
+        новые напоминания встают по нему в течение минуты. Окно из панели важнее `REMINDER_DAYS_BEFORE`;
+        `null` возвращает значение сервера. Только администратор.
+      operationId: update_settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemSettingsUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSettings'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
       security:
       - bearer: []
       - X-API-KEY: []
@@ -2140,6 +2429,17 @@ components:
       - entityName
       - details
       title: AuditEntry
+    Body_attach_receipt:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+          description: 'Чек: PDF, JPEG, PNG или WebP до 10 МБ'
+      type: object
+      required:
+      - file
+      title: Body_attach_receipt
     Currency:
       type: string
       enum:
@@ -2771,6 +3071,11 @@ components:
           - type: 'null'
           title: Remindersentat
           description: Когда ушло последнее напоминание о периоде
+        receipt:
+          anyOf:
+          - $ref: '#/components/schemas/Receipt'
+          - type: 'null'
+          description: Чек оплаты; null - не приложен
       type: object
       required:
       - id
@@ -2839,6 +3144,16 @@ components:
           description: Платёж прекращён
           examples:
           - false
+        reminderDaysBefore:
+          anyOf:
+          - type: integer
+            maximum: 30.0
+            minimum: 0.0
+            description: За сколько дней до срока напоминать; null - общее окно (`GET /settings`)
+            examples:
+            - 7
+          - type: 'null'
+          title: Reminderdaysbefore
       type: object
       required:
       - id
@@ -2967,6 +3282,44 @@ components:
       - currency
       title: PlannedOccurrence
       description: Будущий период по расписанию; в базе его ещё нет, отметить оплату нельзя.
+    Receipt:
+      properties:
+        fileName:
+          type: string
+          title: Filename
+          examples:
+          - receipt.pdf
+        contentType:
+          type: string
+          title: Contenttype
+          description: application/pdf, image/jpeg, image/png или image/webp
+          examples:
+          - application/pdf
+        size:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Size
+          description: Байт
+          examples:
+          - 184320
+        uploadedAt:
+          type: string
+          format: date-time
+          title: Uploadedat
+        uploadedByLogin:
+          type: string
+          title: Uploadedbylogin
+          examples:
+          - buh.petrova
+      type: object
+      required:
+      - fileName
+      - contentType
+      - size
+      - uploadedAt
+      - uploadedByLogin
+      title: Receipt
+      description: Чек оплаты периода; сам файл - `GET /payment-occurrences/{id}/receipt`.
     RecurringPayment:
       properties:
         id:
@@ -3014,6 +3367,16 @@ components:
             - 4
           - type: 'null'
           title: Occurrencelimit
+        reminderDaysBefore:
+          anyOf:
+          - type: integer
+            maximum: 30.0
+            minimum: 0.0
+            description: За сколько дней до срока напоминать; null - общее окно (`GET /settings`)
+            examples:
+            - 7
+          - type: 'null'
+          title: Reminderdaysbefore
         paidOccurrences:
           type: integer
           minimum: 0.0
@@ -3088,6 +3451,7 @@ components:
       - period
       - periodCount
       - occurrenceLimit
+      - reminderDaysBefore
       - paidOccurrences
       - completed
       - anchorDay
@@ -3117,6 +3481,7 @@ components:
         paidOccurrences: 3
         period: month
         periodCount: 1
+        reminderDaysBefore: 7
     RecurringPaymentCreate:
       properties:
         name:
@@ -3155,6 +3520,16 @@ components:
             - 4
           - type: 'null'
           title: Occurrencelimit
+        reminderDaysBefore:
+          anyOf:
+          - type: integer
+            maximum: 30.0
+            minimum: 0.0
+            description: За сколько дней до срока напоминать; null - общее окно (`GET /settings`)
+            examples:
+            - 7
+          - type: 'null'
+          title: Reminderdaysbefore
         nextDueDate:
           type: string
           format: date
@@ -3249,6 +3624,17 @@ components:
           title: Occurrencelimit
           description: Сколько раз оплатить всего; null - снять ограничение. Не меньше, чем уже оплаченных
             и просроченных периодов
+        reminderDaysBefore:
+          anyOf:
+          - type: integer
+            maximum: 30.0
+            minimum: 0.0
+            description: За сколько дней до срока напоминать; null - общее окно (`GET /settings`)
+            examples:
+            - 7
+          - type: 'null'
+          title: Reminderdaysbefore
+          description: Своё окно напоминания; null - общее окно системы
         nextDueDate:
           anyOf:
           - type: string
@@ -3316,7 +3702,18 @@ components:
         reminderDaysBefore:
           type: integer
           title: Reminderdaysbefore
-          description: За сколько дней до срока приходит напоминание
+          description: 'Общее окно напоминаний: за сколько дней до срока, если у платежа нет своего'
+          examples:
+          - 3
+        receiptsEnabled:
+          type: boolean
+          title: Receiptsenabled
+          description: 'Чеки оплаты настроены: можно прикладывать к оплаченным периодам'
+        reminderDaysBeforeDefault:
+          type: integer
+          title: Reminderdaysbeforedefault
+          description: 'Окно из настроек сервера (`REMINDER_DAYS_BEFORE`): действует, пока окно не задали
+            в панели, к нему возвращает сброс'
           examples:
           - 3
       type: object
@@ -3324,7 +3721,26 @@ components:
       - today
       - timezone
       - reminderDaysBefore
+      - receiptsEnabled
+      - reminderDaysBeforeDefault
       title: SystemSettings
+    SystemSettingsUpdate:
+      properties:
+        reminderDaysBefore:
+          anyOf:
+          - type: integer
+            maximum: 30.0
+            minimum: 0.0
+          - type: 'null'
+          title: Reminderdaysbefore
+          description: null - вернуть окно из настроек сервера (`reminderDaysBeforeDefault`)
+          examples:
+          - 5
+      additionalProperties: false
+      type: object
+      required:
+      - reminderDaysBefore
+      title: SystemSettingsUpdate
     TelegramLink:
       properties:
         url:
@@ -3630,3 +4046,5 @@ tags:
   description: Кто и что менял в системе.
 - name: Система
   description: Настройки, нужные панели.
+- name: События
+  description: Поток изменений для панели в реальном времени (SSE).

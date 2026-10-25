@@ -323,3 +323,101 @@ describe('запись журнала словами', () => {
 		).toEqual([]);
 	});
 });
+
+describe('окно напоминаний', () => {
+	const settings = (
+		before: number,
+		after: number,
+		fromServerSettings = false
+	) =>
+		entry(
+			'settings.updated',
+			{
+				before: { reminderDaysBefore: before },
+				after: { reminderDaysBefore: after, fromServerSettings },
+			},
+			'Окно напоминаний'
+		);
+
+	it('изменение общего окна', () => {
+		expect(plain(describeEntry(settings(3, 5)))).toEqual({
+			kind: 'edit',
+			action: 'Изменение настроек',
+			object: 'Окно напоминаний',
+			objectNote: 'для всех платежей',
+			details: ['Напоминание: за 3 дня → за 5 дней'],
+		});
+	});
+
+	it('возврат к значению сервера', () => {
+		expect(plain(describeEntry(settings(5, 0, true)).details)).toEqual([
+			'Напоминание: за 5 дней → в день срока',
+			'Как на сервере',
+		]);
+	});
+
+	it('своё окно у нового платежа', () => {
+		expect(
+			plain(
+				describeEntry(
+					entry('payment.created', { ...snapshot, reminderDaysBefore: 7 })
+				).details
+			)
+		).toContain('Напоминание: за 7 дней');
+	});
+
+	it.each([
+		[7, null, 'Напоминание: за 7 дней → как у всех'],
+		[undefined, 5, 'Напоминание: как у всех → за 5 дней'],
+	])('изменение окна платежа: %s → %s', (before, after, expected) => {
+		expect(
+			plain(
+				describeEntry(
+					entry('payment.updated', {
+						before: { ...snapshot, reminderDaysBefore: before },
+						after: { ...snapshot, reminderDaysBefore: after },
+					})
+				).details
+			)
+		).toEqual([expected]);
+	});
+});
+
+describe('чеки', () => {
+	it('чек из Telegram', () => {
+		expect(
+			plain(
+				describeEntry(
+					entry('receipt.attached', {
+						fileName: 'check.pdf',
+						contentType: 'application/pdf',
+						size: 250_000,
+						replaced: false,
+						source: 'telegram',
+					})
+				)
+			)
+		).toEqual({
+			kind: 'receipt',
+			action: 'Загрузка чека через Telegram',
+			object: 'Интернет в офисе',
+			objectNote: 'чек оплаты',
+			details: ['check.pdf, 244 КБ'],
+		});
+	});
+
+	it('замена и удаление', () => {
+		expect(
+			describeEntry(
+				entry('receipt.attached', {
+					fileName: 'new.png',
+					size: 1000,
+					replaced: true,
+				})
+			).action
+		).toBe('Замена чека');
+		expect(
+			plain(describeEntry(entry('receipt.deleted', { fileName: 'check.pdf' })))
+		).toMatchObject({ action: 'Удаление чека', details: ['check.pdf'] });
+	});
+});

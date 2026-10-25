@@ -36,6 +36,9 @@ OPERATIONS: dict[str, tuple[str, str, dict[str, Any] | None]] = {
     "list_payment_occurrences": ("get", "/api/v1/payment-occurrences", None),
     "get_payment_occurrence": ("get", f"/api/v1/payment-occurrences/{ID}", None),
     "update_payment_occurrence": ("patch", f"/api/v1/payment-occurrences/{ID}", {"paid": True}),
+    "attach_receipt": ("put", f"/api/v1/payment-occurrences/{ID}/receipt", None),
+    "get_receipt": ("get", f"/api/v1/payment-occurrences/{ID}/receipt", None),
+    "delete_receipt": ("delete", f"/api/v1/payment-occurrences/{ID}/receipt", None),
     "get_payments_summary": ("get", "/api/v1/payments/summary", None),
     "list_departments": ("get", "/api/v1/departments", None),
     "create_department": ("post", "/api/v1/departments", {"name": "Офис"}),
@@ -46,6 +49,7 @@ OPERATIONS: dict[str, tuple[str, str, dict[str, Any] | None]] = {
     "update_telegram_settings": ("patch", "/api/v1/me/telegram", {"personalEnabled": False}),
     "unlink_telegram": ("delete", "/api/v1/me/telegram", None),
     "get_settings": ("get", "/api/v1/settings", None),
+    "update_settings": ("patch", "/api/v1/settings", {"reminderDaysBefore": 5}),
     "resume_recurring_payment": ("post", f"/api/v1/recurring-payments/{ID}/resume", None),
     "list_audit_log": ("get", "/api/v1/audit-log", None),
     "get_payments_forecast": ("get", "/api/v1/payments/forecast?to=2026-12-31", None),
@@ -53,8 +57,10 @@ OPERATIONS: dict[str, tuple[str, str, dict[str, Any] | None]] = {
     "create_group_chat_link": ("post", "/api/v1/telegram-chats/link", None),
     "update_group_chat": ("patch", f"/api/v1/telegram-chats/{ID}", {"departmentIds": None}),
     "delete_group_chat": ("delete", f"/api/v1/telegram-chats/{ID}", None),
+    "stream_events": ("get", "/api/v1/events", None),
 }
 ROLE_RESTRICTED = {
+    "update_settings",
     "get_telegram_status",
     "create_telegram_link",
     "update_telegram_settings",
@@ -77,6 +83,9 @@ ROLE_RESTRICTED = {
     "list_audit_log",
 }
 CONFLICTS = {
+    "attach_receipt",
+    "get_receipt",
+    "delete_receipt",
     "resume_recurring_payment",
     "create_user",
     "update_user",
@@ -90,7 +99,11 @@ CONFLICTS = {
     "create_group_chat_link",
 }
 # Telegram может быть недоступен: 503 `telegram_unavailable`.
-UNAVAILABLE = {"create_telegram_link", "create_group_chat_link"}
+UNAVAILABLE = {"create_telegram_link", "create_group_chat_link", "attach_receipt", "get_receipt"}
+# Тело - файл (multipart), а не JSON.
+UPLOADS = {"attach_receipt"}
+# Поток не заканчивается, клиент тестов ждал бы его вечно: проверка - tests/app/test_events.py.
+STREAMS = {"stream_events"}
 # Вход без токена: схемы безопасности у этих операций нет.
 PUBLIC = {"login", "use_challenge", "submit_totp"}
 LISTS = {

@@ -28,7 +28,9 @@ import {
 	IconChevronRight,
 	IconClose,
 	IconDots,
+	IconPaperclip,
 	IconPencil,
+	IconReceipt,
 	IconUndo,
 } from '@shared/ui/icons';
 import { Island } from '@shared/ui/island';
@@ -40,9 +42,13 @@ import {
 	shiftPeriod,
 } from '../model/payments-search';
 import { mergeByDue, type PlannedEntry, plannedHint } from '../lib/planned';
-import { occurrenceTitle } from '../model/wording';
+import { occurrenceTitle, receiptActionLabel } from '../model/wording';
 import { PlannedMark } from './calendar-entry';
-import { MarkButton, type OccurrenceHandlers } from './occurrence-actions';
+import {
+	MarkButton,
+	type OccurrenceHandlers,
+	ReceiptButton,
+} from './occurrence-actions';
 import classes from './payments-page.module.css';
 
 /** «Фильтры» со счётчиком выбранных отдела и валюты. */
@@ -169,6 +175,7 @@ export function OccurrenceCards({
 	pendingId,
 	onMark,
 	onOpenActions,
+	onReceipt,
 	showPayment = true,
 }: {
 	occurrences: PaymentOccurrence[];
@@ -180,6 +187,8 @@ export function OccurrenceCards({
 	pendingId: string | null;
 	onMark: (occurrence: PaymentOccurrence) => void;
 	onOpenActions: (occurrence: PaymentOccurrence) => void;
+	/** Окно чека; нет, если чеки на сервере выключены. */
+	onReceipt?: (occurrence: PaymentOccurrence) => void;
 	/** Название и отдел платежа; в окне одного платежа карточку открывает срок. */
 	showPayment?: boolean;
 }) {
@@ -287,7 +296,17 @@ export function OccurrenceCards({
 									)}
 								</span>
 							</span>
-							{occurrence.paid && menu}
+							{occurrence.paid && (
+								<span className={classes.phoneCardTools}>
+									{occurrence.receipt && onReceipt && (
+										<ReceiptButton
+											occurrence={occurrence}
+											onReceipt={onReceipt}
+										/>
+									)}
+									{menu}
+								</span>
+							)}
 						</div>
 						{!occurrence.paid && (
 							<div className={classes.phoneActions}>
@@ -313,6 +332,7 @@ export function ActionSheet({
 	onClose,
 	onPickDate,
 	onUnmark,
+	onReceipt,
 }: Omit<OccurrenceHandlers, 'onMark'> & {
 	occurrence: PaymentOccurrence | null;
 	onClose: () => void;
@@ -344,6 +364,24 @@ export function ActionSheet({
 							>
 								Исправить дату
 							</Button>
+							{onReceipt && (
+								<Button
+									variant='subtle'
+									color='dark'
+									className={classes.sheetAction}
+									justify='flex-start'
+									leftSection={
+										occurrence.receipt ? (
+											<IconReceipt size={20} />
+										) : (
+											<IconPaperclip size={20} />
+										)
+									}
+									onClick={() => run(() => onReceipt(occurrence))}
+								>
+									{receiptActionLabel(occurrence)}
+								</Button>
+							)}
 							<Button
 								variant='subtle'
 								color='var(--mantine-color-error)'

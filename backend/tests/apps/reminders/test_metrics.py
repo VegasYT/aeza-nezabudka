@@ -1,11 +1,13 @@
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 import pytest
 from prometheus_client import REGISTRY
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.worker import tick
+from apps.reminders.models import Notification
 from apps.reminders.service import ReminderSender
 from apps.reminders.telegram import TemporaryDeliveryError
 from tests.apps.payments.conftest import create_payment
@@ -31,6 +33,29 @@ async def test_tick_reports_queue_size(
 
     assert _value("outbox_pending", queue="notifications") == 2
     assert _value("outbox_oldest_pending_age_seconds", queue="notifications") >= 0
+
+
+async def test_postponed_reminder_is_not_stale(
+    api: httpx.AsyncClient,
+    clock: ReminderClock,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    await create_payment(api, "2026-10-26")
+    await drop_created(session_factory)
+    await tick(session_factory, clock, REMINDERS)
+    # как после "Напомнить завтра": запись создана давно, отправка назначена на завтра
+    async with session_factory() as session, session.begin():
+        await session.execute(
+            update(Notification).values(
+                created_at=clock.now() - timedelta(hours=5),
+                next_attempt_at=clock.now() + timedelta(days=1),
+            )
+        )
+
+    await tick(session_factory, clock, REMINDERS)
+
+    assert _value("outbox_pending", queue="notifications") == 1
+    assert _value("outbox_oldest_pending_age_seconds", queue="notifications") == 0
 
 
 async def test_retry_is_counted(

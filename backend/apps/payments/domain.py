@@ -212,3 +212,37 @@ def summarize(states: Sequence[OccurrenceState], today: date) -> list[CurrencyTo
             overdue_count=current.overdue_count + int(overdue > 0),
         )
     return list(totals.values())
+
+
+RECEIPT_MAX_BYTES = 10 * 1024 * 1024
+RECEIPT_NAME_LIMIT = 255
+# первое расширение дописывается к имени без подходящего
+RECEIPT_EXTENSIONS = {
+    "application/pdf": (".pdf",),
+    "image/jpeg": (".jpg", ".jpeg"),
+    "image/png": (".png",),
+    "image/webp": (".webp",),
+}
+
+
+def receipt_type(data: bytes) -> str | None:
+    """Тип чека по первым байтам; заявленному клиентом типу и расширению не верим."""
+    if data.startswith(b"%PDF-"):
+        return "application/pdf"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def receipt_name(name: str | None, content_type: str) -> str:
+    """Имя для скачивания: без пути и управляющих символов, с расширением по типу."""
+    base = (name or "").replace("\\", "/").rsplit("/", 1)[-1]
+    clean = "".join(char for char in base if char.isprintable()).strip() or "receipt"
+    extensions = RECEIPT_EXTENSIONS[content_type]
+    if not clean.lower().endswith(extensions):
+        clean += extensions[0]
+    return clean[-RECEIPT_NAME_LIMIT:]

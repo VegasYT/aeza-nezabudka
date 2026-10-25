@@ -54,6 +54,8 @@ class FakeNotifier:
         self.errors: list[Exception] = []
         self.updates: list[IncomingMessage | IncomingCallback] = []
         self.blocked_chats: set[str] = set()
+        # содержимое файлов, которые бот может скачать, по file_id
+        self.files: dict[str, bytes] = {}
         self.polls = 0
         self._delay = delay
 
@@ -80,6 +82,9 @@ class FakeNotifier:
 
     async def username(self) -> str:
         return BOT_USERNAME
+
+    async def download(self, file_id: str) -> bytes:
+        return self.files[file_id]
 
     async def get_updates(
         self, offset: int | None, poll_seconds: int

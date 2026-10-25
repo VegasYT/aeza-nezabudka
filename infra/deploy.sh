@@ -23,7 +23,7 @@ $COMPOSE up -d --remove-orphans
 # Конфиги подключены томами: их правку compose не видит, поэтому сервис перезапускается
 # при смене хеша каталога. Первый запуск только запоминает хеши.
 for pair in caddy:infra/caddy prometheus:infra/prometheus loki:infra/loki \
-	promtail:infra/promtail grafana:infra/grafana; do
+	promtail:infra/promtail grafana:infra/grafana garage:infra/garage; do
 	service=${pair%%:*}
 	sum=$(find "${pair#*:}" -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
 	state="$HOME/.nezabudka-config-$service"

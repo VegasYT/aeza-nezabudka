@@ -41,6 +41,7 @@ OPEN_AMOUNT = Gauge(
     "Сумма неоплаченных периодов в основных единицах валюты",
     ["state", "currency"],
 )
+LIVE_CLIENTS = Gauge("live_clients", "Открытые потоки событий панели (SSE)")
 TELEGRAM_ACTIONS = Counter(
     "telegram_actions_total", "Нажатия кнопок под напоминаниями", ["action", "result"]
 )

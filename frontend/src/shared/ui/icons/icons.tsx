@@ -343,3 +343,21 @@ export function IconCheck(props: IconProps) {
 		</IconBase>
 	);
 }
+
+/** Чек: лист с зубчатым краем и строками. */
+export function IconReceipt(props: IconProps) {
+	return (
+		<IconBase {...props}>
+			<path d='M6 3.5H18V20.5L15.5 19L13 20.5L10.5 19L8 20.5L6 19V3.5ZM9 8H15M9 11.5H15M9 15H12.5' />
+		</IconBase>
+	);
+}
+
+/** Скрепка: приложить файл. */
+export function IconPaperclip(props: IconProps) {
+	return (
+		<IconBase {...props}>
+			<path d='M15.5 7.5L9.25 13.75A1.77 1.77 0 0 0 11.75 16.25L18.25 9.75A3.54 3.54 0 0 0 13.25 4.75L6.75 11.25A5.3 5.3 0 0 0 14.25 18.75L19.5 13.5' />
+		</IconBase>
+	);
+}

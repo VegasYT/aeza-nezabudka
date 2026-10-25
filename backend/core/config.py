@@ -219,6 +219,39 @@ class IntegrationSettings(BaseSettings):
         return tuple(enabled)
 
 
+class StorageSettings(BaseSettings):
+    """S3-совместимое хранилище чеков (ADR-017): читают api и worker. Без адреса чеки выключены."""
+
+    model_config = SettingsConfigDict(extra="ignore", env_file_encoding="utf-8")
+
+    s3_endpoint_url: str | None = None
+    s3_bucket: str = "receipts"
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: SecretStr | None = None
+    s3_region: str = "us-east-1"
+
+    @field_validator("s3_endpoint_url", "s3_access_key_id", "s3_secret_access_key", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        return None if value == "" else value
+
+    @field_validator("s3_endpoint_url")
+    @classmethod
+    def _http_url(cls, value: str | None) -> str | None:
+        if value is not None and not value.startswith(("http://", "https://")):
+            raise ValueError("ожидается адрес вида http(s)://")
+        return value
+
+    @field_validator("s3_secret_access_key")
+    @classmethod
+    def _keys_with_url(cls, value: SecretStr | None, info: ValidationInfo) -> SecretStr | None:
+        if info.data.get("s3_endpoint_url") is not None and (
+            value is None or info.data.get("s3_access_key_id") is None
+        ):
+            raise ValueError("S3_ENDPOINT_URL задан без S3_ACCESS_KEY_ID и S3_SECRET_ACCESS_KEY")
+        return value
+
+
 def load_settings(env_file: Path | None = ENV_FILE) -> Settings:
     """Читает настройки из окружения и `.env`; ошибки превращает в `ConfigError`."""
     try:
@@ -266,5 +299,12 @@ def load_reminder_settings(env_file: Path | None = ENV_FILE) -> ReminderSettings
 def load_integration_settings(env_file: Path | None = ENV_FILE) -> IntegrationSettings:
     try:
         return IntegrationSettings(_env_file=env_file)
+    except ValidationError as error:
+        raise ConfigError(_describe(error)) from None
+
+
+def load_storage_settings(env_file: Path | None = ENV_FILE) -> StorageSettings:
+    try:
+        return StorageSettings(_env_file=env_file)
     except ValidationError as error:
         raise ConfigError(_describe(error)) from None

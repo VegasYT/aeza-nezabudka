@@ -9,8 +9,9 @@ from pydantic import SecretStr
 
 from app.main import create_app
 from apps.departments.service import departments_service
+from apps.payments.receipts import receipts_service
 from apps.payments.service import payments_service
-from apps.reminders.service import telegram_links
+from apps.reminders.service import reminder_window, telegram_links
 from apps.users.service import auth_service, users_service
 from core.config import Settings
 from core.errors import NotImplementedYet
@@ -44,6 +45,8 @@ def offline_app() -> FastAPI:
         auth_service,
         telegram_links,
         departments_service,
+        reminder_window,
+        receipts_service,
     ):
         app.dependency_overrides[service] = _NoBackend
     return app

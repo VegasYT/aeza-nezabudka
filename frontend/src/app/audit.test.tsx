@@ -10,6 +10,7 @@ import {
 	handleListAuditLog,
 	handleListDepartments,
 	handleListUsers,
+	serveLiveEvents,
 	signIn,
 	stubMatchMedia,
 } from '@shared/lib/test-utils';
@@ -153,6 +154,30 @@ describe('журнал администратора', () => {
 		);
 		expect(params?.has('action')).toBe(false);
 		expect(params?.has('actorLogin')).toBe(false);
+	});
+
+	it('новая запись из потока событий появляется сверху без обновления страницы', async () => {
+		const entries = [login];
+
+		serveAudit(entries);
+
+		const live = serveLiveEvents();
+
+		renderApp('/audit');
+
+		expect(await screen.findByText('1 запись')).toBeInTheDocument();
+		await waitFor(() => expect(live.connections).toBe(1));
+
+		entries.unshift({ ...paid, at: local(10, 25, 11, 50) });
+		live.change({
+			type: 'occurrence.paid',
+			entityType: 'occurrence',
+			entityName: 'Интернет в офисе',
+			actorLogin: 'buh.petrova@company.ru',
+		});
+
+		expect(await screen.findByText('2 записи')).toBeInTheDocument();
+		expect(screen.getAllByRole('row')[2]).toHaveTextContent('Отметка оплаты');
 	});
 
 	it('фильтр «Оплаты» уходит в запрос и в адрес', async () => {

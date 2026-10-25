@@ -9,6 +9,8 @@ export const ACTION_GROUPS = [
 	{ value: 'members', label: 'Участники', action: 'member.*' },
 	{ value: 'departments', label: 'Отделы', action: 'department.*' },
 	{ value: 'chats', label: 'Чаты Telegram', action: 'telegram_chat.*' },
+	{ value: 'receipts', label: 'Чеки', action: 'receipt.*' },
+	{ value: 'settings', label: 'Настройки', action: 'settings.*' },
 ] as const;
 
 export type ActionGroup = (typeof ACTION_GROUPS)[number]['value'];

@@ -49,6 +49,18 @@ export type AuditEntry = {
 };
 
 /**
+ * Body_attach_receipt
+ */
+export type BodyAttachReceipt = {
+    /**
+     * File
+     *
+     * Чек: PDF, JPEG, PNG или WebP до 10 МБ
+     */
+    file: Blob | File;
+};
+
+/**
  * Currency
  */
 export type Currency = 'RUB' | 'USD' | 'EUR';
@@ -539,6 +551,10 @@ export type PaymentOccurrence = {
      * Когда ушло последнее напоминание о периоде
      */
     reminderSentAt?: string | null;
+    /**
+     * Чек оплаты; null - не приложен
+     */
+    receipt?: Receipt | null;
 };
 
 /**
@@ -577,6 +593,10 @@ export type PaymentRef = {
      * Платёж прекращён
      */
     stopped: boolean;
+    /**
+     * Reminderdaysbefore
+     */
+    reminderDaysBefore?: number | null;
 };
 
 /**
@@ -640,6 +660,38 @@ export type PlannedOccurrence = {
 };
 
 /**
+ * Receipt
+ *
+ * Чек оплаты периода; сам файл - `GET /payment-occurrences/{id}/receipt`.
+ */
+export type Receipt = {
+    /**
+     * Filename
+     */
+    fileName: string;
+    /**
+     * Contenttype
+     *
+     * application/pdf, image/jpeg, image/png или image/webp
+     */
+    contentType: string;
+    /**
+     * Size
+     *
+     * Байт
+     */
+    size: number;
+    /**
+     * Uploadedat
+     */
+    uploadedAt: string;
+    /**
+     * Uploadedbylogin
+     */
+    uploadedByLogin: string;
+};
+
+/**
  * RecurringPayment
  */
 export type RecurringPayment = {
@@ -672,6 +724,10 @@ export type RecurringPayment = {
      * Occurrencelimit
      */
     occurrenceLimit: number | null;
+    /**
+     * Reminderdaysbefore
+     */
+    reminderDaysBefore: number | null;
     /**
      * Paidoccurrences
      *
@@ -752,6 +808,10 @@ export type RecurringPaymentCreate = {
      */
     occurrenceLimit?: number | null;
     /**
+     * Reminderdaysbefore
+     */
+    reminderDaysBefore?: number | null;
+    /**
      * Nextduedate
      *
      * Дата ближайшей оплаты, не раньше сегодня
@@ -808,6 +868,12 @@ export type RecurringPaymentUpdate = {
      * Сколько раз оплатить всего; null - снять ограничение. Не меньше, чем уже оплаченных и просроченных периодов
      */
     occurrenceLimit?: number | null;
+    /**
+     * Reminderdaysbefore
+     *
+     * Своё окно напоминания; null - общее окно системы
+     */
+    reminderDaysBefore?: number | null;
     /**
      * Nextduedate
      *
@@ -867,9 +933,33 @@ export type SystemSettings = {
     /**
      * Reminderdaysbefore
      *
-     * За сколько дней до срока приходит напоминание
+     * Общее окно напоминаний: за сколько дней до срока, если у платежа нет своего
      */
     reminderDaysBefore: number;
+    /**
+     * Receiptsenabled
+     *
+     * Чеки оплаты настроены: можно прикладывать к оплаченным периодам
+     */
+    receiptsEnabled: boolean;
+    /**
+     * Reminderdaysbeforedefault
+     *
+     * Окно из настроек сервера (`REMINDER_DAYS_BEFORE`): действует, пока окно не задали в панели, к нему возвращает сброс
+     */
+    reminderDaysBeforeDefault: number;
+};
+
+/**
+ * SystemSettingsUpdate
+ */
+export type SystemSettingsUpdate = {
+    /**
+     * Reminderdaysbefore
+     *
+     * null - вернуть окно из настроек сервера (`reminderDaysBeforeDefault`)
+     */
+    reminderDaysBefore: number | null;
 };
 
 /**
@@ -1937,6 +2027,152 @@ export type UpdatePaymentOccurrenceResponses = {
 
 export type UpdatePaymentOccurrenceResponse = UpdatePaymentOccurrenceResponses[keyof UpdatePaymentOccurrenceResponses];
 
+export type DeleteReceiptData = {
+    body?: never;
+    path: {
+        /**
+         * Occurrence Id
+         */
+        occurrence_id: string;
+    };
+    query?: never;
+    url: '/api/v1/payment-occurrences/{occurrence_id}/receipt';
+};
+
+export type DeleteReceiptErrors = {
+    /**
+     * Ошибка проверки данных: список полей в `payload`
+     */
+    400: ErrorResponse;
+    /**
+     * Нет действующего токена (`not_auth`)
+     */
+    401: ErrorResponse;
+    /**
+     * Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+     */
+    404: ErrorResponse;
+    /**
+     * Операция невозможна в текущем состоянии
+     */
+    409: ErrorResponse;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteReceiptError = DeleteReceiptErrors[keyof DeleteReceiptErrors];
+
+export type DeleteReceiptResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteReceiptResponse = DeleteReceiptResponses[keyof DeleteReceiptResponses];
+
+export type GetReceiptData = {
+    body?: never;
+    path: {
+        /**
+         * Occurrence Id
+         */
+        occurrence_id: string;
+    };
+    query?: never;
+    url: '/api/v1/payment-occurrences/{occurrence_id}/receipt';
+};
+
+export type GetReceiptErrors = {
+    /**
+     * Ошибка проверки данных: список полей в `payload`
+     */
+    400: ErrorResponse;
+    /**
+     * Нет действующего токена (`not_auth`)
+     */
+    401: ErrorResponse;
+    /**
+     * Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+     */
+    404: ErrorResponse;
+    /**
+     * Операция невозможна в текущем состоянии
+     */
+    409: ErrorResponse;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Сервис входа Aéza временно недоступен
+     */
+    503: ErrorResponse;
+};
+
+export type GetReceiptError = GetReceiptErrors[keyof GetReceiptErrors];
+
+export type GetReceiptResponses = {
+    /**
+     * Файл чека
+     */
+    200: Blob | File;
+};
+
+export type GetReceiptResponse = GetReceiptResponses[keyof GetReceiptResponses];
+
+export type AttachReceiptData = {
+    body: BodyAttachReceipt;
+    path: {
+        /**
+         * Occurrence Id
+         */
+        occurrence_id: string;
+    };
+    query?: never;
+    url: '/api/v1/payment-occurrences/{occurrence_id}/receipt';
+};
+
+export type AttachReceiptErrors = {
+    /**
+     * Ошибка проверки данных: список полей в `payload`
+     */
+    400: ErrorResponse;
+    /**
+     * Нет действующего токена (`not_auth`)
+     */
+    401: ErrorResponse;
+    /**
+     * Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+     */
+    404: ErrorResponse;
+    /**
+     * Операция невозможна в текущем состоянии
+     */
+    409: ErrorResponse;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Сервис входа Aéza временно недоступен
+     */
+    503: ErrorResponse;
+};
+
+export type AttachReceiptError = AttachReceiptErrors[keyof AttachReceiptErrors];
+
+export type AttachReceiptResponses = {
+    /**
+     * Successful Response
+     */
+    200: PaymentOccurrence;
+};
+
+export type AttachReceiptResponse = AttachReceiptResponses[keyof AttachReceiptResponses];
+
 export type GetPaymentsSummaryData = {
     body?: never;
     path?: never;
@@ -2661,6 +2897,29 @@ export type ListAuditLogResponses = {
 
 export type ListAuditLogResponse = ListAuditLogResponses[keyof ListAuditLogResponses];
 
+export type StreamEventsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/events';
+};
+
+export type StreamEventsErrors = {
+    /**
+     * Нет действующего токена (`not_auth`)
+     */
+    401: ErrorResponse;
+};
+
+export type StreamEventsError = StreamEventsErrors[keyof StreamEventsErrors];
+
+export type StreamEventsResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type GetSettingsData = {
     body?: never;
     path?: never;
@@ -2685,3 +2944,40 @@ export type GetSettingsResponses = {
 };
 
 export type GetSettingsResponse = GetSettingsResponses[keyof GetSettingsResponses];
+
+export type UpdateSettingsData = {
+    body: SystemSettingsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings';
+};
+
+export type UpdateSettingsErrors = {
+    /**
+     * Ошибка проверки данных: список полей в `payload`
+     */
+    400: ErrorResponse;
+    /**
+     * Нет действующего токена (`not_auth`)
+     */
+    401: ErrorResponse;
+    /**
+     * Недостаточно прав
+     */
+    403: ErrorResponse;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateSettingsError = UpdateSettingsErrors[keyof UpdateSettingsErrors];
+
+export type UpdateSettingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SystemSettings;
+};
+
+export type UpdateSettingsResponse = UpdateSettingsResponses[keyof UpdateSettingsResponses];

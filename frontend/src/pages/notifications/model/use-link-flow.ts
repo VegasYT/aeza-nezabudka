@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import type { TelegramLink } from '@shared/api';
+import { useLiveConnected } from '@shared/live';
 
 import { POLL_INTERVAL } from './telegram';
 
@@ -34,7 +35,8 @@ interface LinkFlowOptions<
 
 /**
  * Ссылка на бота и ожидание привязки: личный Telegram и групповые чаты. Пока ссылка действует,
- * запрос перечитывается; ожидание заканчивается по `isDone` или когда ссылка устарела.
+ * запрос перечитывается по событию потока, а без потока - опросом; ожидание заканчивается
+ * по `isDone` или когда ссылка устарела.
  */
 export function useLinkFlow<
 	TData,
@@ -51,10 +53,13 @@ export function useLinkFlow<
 	const [attempt, setAttempt] = useState<Attempt<TLink, TSince> | null>(null);
 	const [expiredLink, setExpiredLink] = useState<TLink | null>(null);
 	const mutation = useMutation({ mutationFn: create });
+	const live = useLiveConnected();
 	const expired = attempt !== null && attempt.link === expiredLink;
+	// Привязку приносит событие потока; опрос нужен, только пока потока нет.
+	const polling = attempt !== null && !expired && !live;
 	const result = useQuery({
 		...query,
-		refetchInterval: attempt && !expired ? POLL_INTERVAL : false,
+		refetchInterval: polling ? POLL_INTERVAL : false,
 	});
 	const done =
 		attempt !== null &&

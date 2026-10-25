@@ -4,8 +4,8 @@ import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutation
 import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
-import { createDepartment, createGroupChatLink, createRecurringPayment, createTelegramLink, createUser, deleteDepartment, deleteGroupChat, deleteUser, exchangeChallenge, getCurrentUser, getPaymentOccurrence, getPaymentsForecast, getPaymentsSummary, getRecurringPayment, getSettings, getTelegramStatus, listAuditLog, listDepartments, listGroupChats, listPaymentOccurrences, listRecurringPayments, listUsers, login, logout, type Options, resumeRecurringPayment, stopRecurringPayment, submitTotp, unlinkTelegram, updateDepartment, updateGroupChat, updatePaymentOccurrence, updateRecurringPayment, updateTelegramSettings, updateUser } from '../sdk.gen';
-import type { CreateDepartmentData, CreateDepartmentError, CreateDepartmentResponse, CreateGroupChatLinkData, CreateGroupChatLinkError, CreateGroupChatLinkResponse, CreateRecurringPaymentData, CreateRecurringPaymentError, CreateRecurringPaymentResponse, CreateTelegramLinkData, CreateTelegramLinkError, CreateTelegramLinkResponse, CreateUserData, CreateUserError, CreateUserResponse, DeleteDepartmentData, DeleteDepartmentError, DeleteDepartmentResponse, DeleteGroupChatData, DeleteGroupChatError, DeleteGroupChatResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeChallengeData, ExchangeChallengeError, ExchangeChallengeResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetPaymentOccurrenceData, GetPaymentOccurrenceError, GetPaymentOccurrenceResponse, GetPaymentsForecastData, GetPaymentsForecastError, GetPaymentsForecastResponse, GetPaymentsSummaryData, GetPaymentsSummaryError, GetPaymentsSummaryResponse, GetRecurringPaymentData, GetRecurringPaymentError, GetRecurringPaymentResponse, GetSettingsData, GetSettingsError, GetSettingsResponse, GetTelegramStatusData, GetTelegramStatusError, GetTelegramStatusResponse, ListAuditLogData, ListAuditLogError, ListAuditLogResponse, ListDepartmentsData, ListDepartmentsError, ListDepartmentsResponse, ListGroupChatsData, ListGroupChatsError, ListGroupChatsResponse, ListPaymentOccurrencesData, ListPaymentOccurrencesError, ListPaymentOccurrencesResponse, ListRecurringPaymentsData, ListRecurringPaymentsError, ListRecurringPaymentsResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ResumeRecurringPaymentData, ResumeRecurringPaymentError, ResumeRecurringPaymentResponse, StopRecurringPaymentData, StopRecurringPaymentError, StopRecurringPaymentResponse, SubmitTotpData, SubmitTotpError, SubmitTotpResponse, UnlinkTelegramData, UnlinkTelegramError, UnlinkTelegramResponse, UpdateDepartmentData, UpdateDepartmentError, UpdateDepartmentResponse, UpdateGroupChatData, UpdateGroupChatError, UpdateGroupChatResponse, UpdatePaymentOccurrenceData, UpdatePaymentOccurrenceError, UpdatePaymentOccurrenceResponse, UpdateRecurringPaymentData, UpdateRecurringPaymentError, UpdateRecurringPaymentResponse, UpdateTelegramSettingsData, UpdateTelegramSettingsError, UpdateTelegramSettingsResponse, UpdateUserData, UpdateUserError, UpdateUserResponse } from '../types.gen';
+import { attachReceipt, createDepartment, createGroupChatLink, createRecurringPayment, createTelegramLink, createUser, deleteDepartment, deleteGroupChat, deleteReceipt, deleteUser, exchangeChallenge, getCurrentUser, getPaymentOccurrence, getPaymentsForecast, getPaymentsSummary, getReceipt, getRecurringPayment, getSettings, getTelegramStatus, listAuditLog, listDepartments, listGroupChats, listPaymentOccurrences, listRecurringPayments, listUsers, login, logout, type Options, resumeRecurringPayment, stopRecurringPayment, submitTotp, unlinkTelegram, updateDepartment, updateGroupChat, updatePaymentOccurrence, updateRecurringPayment, updateSettings, updateTelegramSettings, updateUser } from '../sdk.gen';
+import type { AttachReceiptData, AttachReceiptError, AttachReceiptResponse, CreateDepartmentData, CreateDepartmentError, CreateDepartmentResponse, CreateGroupChatLinkData, CreateGroupChatLinkError, CreateGroupChatLinkResponse, CreateRecurringPaymentData, CreateRecurringPaymentError, CreateRecurringPaymentResponse, CreateTelegramLinkData, CreateTelegramLinkError, CreateTelegramLinkResponse, CreateUserData, CreateUserError, CreateUserResponse, DeleteDepartmentData, DeleteDepartmentError, DeleteDepartmentResponse, DeleteGroupChatData, DeleteGroupChatError, DeleteGroupChatResponse, DeleteReceiptData, DeleteReceiptError, DeleteReceiptResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeChallengeData, ExchangeChallengeError, ExchangeChallengeResponse, GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetPaymentOccurrenceData, GetPaymentOccurrenceError, GetPaymentOccurrenceResponse, GetPaymentsForecastData, GetPaymentsForecastError, GetPaymentsForecastResponse, GetPaymentsSummaryData, GetPaymentsSummaryError, GetPaymentsSummaryResponse, GetReceiptData, GetReceiptError, GetReceiptResponse, GetRecurringPaymentData, GetRecurringPaymentError, GetRecurringPaymentResponse, GetSettingsData, GetSettingsError, GetSettingsResponse, GetTelegramStatusData, GetTelegramStatusError, GetTelegramStatusResponse, ListAuditLogData, ListAuditLogError, ListAuditLogResponse, ListDepartmentsData, ListDepartmentsError, ListDepartmentsResponse, ListGroupChatsData, ListGroupChatsError, ListGroupChatsResponse, ListPaymentOccurrencesData, ListPaymentOccurrencesError, ListPaymentOccurrencesResponse, ListRecurringPaymentsData, ListRecurringPaymentsError, ListRecurringPaymentsResponse, ListUsersData, ListUsersError, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ResumeRecurringPaymentData, ResumeRecurringPaymentError, ResumeRecurringPaymentResponse, StopRecurringPaymentData, StopRecurringPaymentError, StopRecurringPaymentResponse, SubmitTotpData, SubmitTotpError, SubmitTotpResponse, UnlinkTelegramData, UnlinkTelegramError, UnlinkTelegramResponse, UpdateDepartmentData, UpdateDepartmentError, UpdateDepartmentResponse, UpdateGroupChatData, UpdateGroupChatError, UpdateGroupChatResponse, UpdatePaymentOccurrenceData, UpdatePaymentOccurrenceError, UpdatePaymentOccurrenceResponse, UpdateRecurringPaymentData, UpdateRecurringPaymentError, UpdateRecurringPaymentResponse, UpdateSettingsData, UpdateSettingsError, UpdateSettingsResponse, UpdateTelegramSettingsData, UpdateTelegramSettingsError, UpdateTelegramSettingsResponse, UpdateUserData, UpdateUserError, UpdateUserResponse } from '../types.gen';
 
 /**
  * Вход аккаунтом Aéza: шаг 1
@@ -497,12 +497,70 @@ export const getPaymentOccurrenceOptions = (options: Options<GetPaymentOccurrenc
 /**
  * Отметить, исправить или отменить оплату
  *
- * paid=true отмечает оплату или исправляет фактическую дату, paid=false отменяет отметку и очищает дату. Срок периода не меняется.
+ * paid=true отмечает оплату или исправляет фактическую дату, paid=false отменяет отметку, очищает дату и удаляет чек. Срок периода не меняется.
  */
 export const updatePaymentOccurrenceMutation = (options?: Partial<Options<UpdatePaymentOccurrenceData>>): UseMutationOptions<UpdatePaymentOccurrenceResponse, AxiosError<UpdatePaymentOccurrenceError>, Options<UpdatePaymentOccurrenceData>> => {
     const mutationOptions: UseMutationOptions<UpdatePaymentOccurrenceResponse, AxiosError<UpdatePaymentOccurrenceError>, Options<UpdatePaymentOccurrenceData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updatePaymentOccurrence({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Удалить чек оплаты
+ *
+ * Без чека - 404. Все роли.
+ */
+export const deleteReceiptMutation = (options?: Partial<Options<DeleteReceiptData>>): UseMutationOptions<DeleteReceiptResponse, AxiosError<DeleteReceiptError>, Options<DeleteReceiptData>> => {
+    const mutationOptions: UseMutationOptions<DeleteReceiptResponse, AxiosError<DeleteReceiptError>, Options<DeleteReceiptData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteReceipt({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getReceiptQueryKey = (options: Options<GetReceiptData>) => createQueryKey('getReceipt', options);
+
+/**
+ * Файл чека оплаты
+ *
+ * Отдаёт файл с его типом и именем; без чека - 404. Все роли.
+ */
+export const getReceiptOptions = (options: Options<GetReceiptData>) => queryOptions<GetReceiptResponse, AxiosError<GetReceiptError>, GetReceiptResponse, ReturnType<typeof getReceiptQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getReceipt({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getReceiptQueryKey(options)
+});
+
+/**
+ * Приложить чек оплаты
+ *
+ * Файл в поле `file` (multipart): PDF, JPEG, PNG или WebP до 10 МБ, тип определяется по содержимому. Только к оплаченному периоду (иначе 409 `occurrence_not_paid`); новый чек заменяет прежний. Без хранилища - 409 `receipts_disabled`, хранилище недоступно - 503 `storage_unavailable`. Все роли.
+ */
+export const attachReceiptMutation = (options?: Partial<Options<AttachReceiptData>>): UseMutationOptions<AttachReceiptResponse, AxiosError<AttachReceiptError>, Options<AttachReceiptData>> => {
+    const mutationOptions: UseMutationOptions<AttachReceiptResponse, AxiosError<AttachReceiptError>, Options<AttachReceiptData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await attachReceipt({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -951,3 +1009,22 @@ export const getSettingsOptions = (options?: Options<GetSettingsData>) => queryO
     },
     queryKey: getSettingsQueryKey(options)
 });
+
+/**
+ * Изменить настройки системы
+ *
+ * Общее окно напоминаний, 0-30 дней; у платежа может быть своё. Действует без перезапуска, новые напоминания встают по нему в течение минуты. Окно из панели важнее `REMINDER_DAYS_BEFORE`; `null` возвращает значение сервера. Только администратор.
+ */
+export const updateSettingsMutation = (options?: Partial<Options<UpdateSettingsData>>): UseMutationOptions<UpdateSettingsResponse, AxiosError<UpdateSettingsError>, Options<UpdateSettingsData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSettingsResponse, AxiosError<UpdateSettingsError>, Options<UpdateSettingsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSettings({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

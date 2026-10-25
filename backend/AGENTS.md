@@ -25,10 +25,12 @@ Python 3.12, весь ввод-вывод асинхронный (ADR-013):
 backend/
   app/
     main.py            процесс api: FastAPI, роутеры apps, middleware, health, /metrics
+    events.py          поток событий для панели GET /api/v1/events (SSE, ADR-016)
     worker.py          процесс worker: планировщик, отправители, чтение обновлений бота
     seed.py            команда тестовых данных
     export_openapi.py  выгрузка api/openapi.yaml
-  core/                общее: настройки, база и сессии, Clock, проверка токена, ошибки, логи, метрики
+  core/                общее: настройки, база и сессии, Clock, проверка токена, ошибки, логи, метрики,
+                       события для панели (live.py), S3-хранилище файлов (storage.py)
   apps/
     payments/          регулярные платежи и периоды, расчёт сроков, просрочка, итоги
     reminders/         планировщик, outbox напоминаний, Telegram, привязка личных чатов
@@ -53,7 +55,7 @@ backend/
 
 - `uv sync` - установить зависимости
 - `uv run python -m app.main` - процесс `api` на `:8000`; при разработке с перезапуском - `uv run uvicorn app.main:app_from_env --factory --reload`
-- `uv run python -m app.worker` - процесс `worker`: раз в минуту досоздаёт периоды и ставит напоминания (`scheduler`), каждые 2 секунды отправляет их в Telegram (`reminder_sender`) и читает команды бота `/start <код>` и `/stop` (`telegram_updates`, один экземпляр под advisory-блокировкой); эти две задачи - только с `TELEGRAM_BOT_TOKEN`; тик также выпускает события `occurrence.due_soon` и `occurrence.overdue`, `event_delivery` каждые 2 секунды доставляет события на webhook и в Kafka (если они настроены), `integrations_cleanup` раз в час удаляет старые события и ключи идемпотентности
+- `uv run python -m app.worker` - процесс `worker`: раз в минуту досоздаёт периоды и ставит напоминания (`scheduler`), каждые 2 секунды отправляет их в Telegram (`reminder_sender`) и читает команды бота `/start <код>` и `/stop` (`telegram_updates`, один экземпляр под advisory-блокировкой); эти две задачи - только с `TELEGRAM_BOT_TOKEN`; тик также выпускает события `occurrence.due_soon` и `occurrence.overdue`, `event_delivery` каждые 2 секунды доставляет события на webhook и в Kafka (если они настроены), `integrations_cleanup` раз в час удаляет старые события и ключи идемпотентности; `receipts_cleanup` раз в час удаляет из S3 объекты чеков без записи (только с `S3_ENDPOINT_URL`)
 - `uv run alembic upgrade head` - применить миграции; `uv run alembic revision --autogenerate -m "<что>"` - новая миграция (имя на английском: из него строится имя файла)
 - `uv run pytest -m "not integration"` - быстрые тесты без Docker
 - `uv run pytest` - все тесты; интеграционные (маркер `integration`) поднимают PostgreSQL в контейнере, нужен запущенный Docker. Тесты идут в 4 процесса (`pytest-xdist`, у каждого свой контейнер), около минуты; для отладки по шагам - `uv run pytest -n 0`
@@ -68,7 +70,7 @@ backend/
 - `uv run python -m app.seed` - тестовые данные для демо: аренда (RUB) с просрочкой на 5 дней, сервер (USD) со сроком через 2 дня, подписка (EUR) с якорем 31 и оплатой с опозданием, участник `DEMO_USER_EMAIL` с ролью `user` (если задан), отделы "Офис" (аренда, подписка) и "ИТ" (сервер). Даты считаются от сегодняшнего дня, повторный запуск ничего не добавляет. К Aéza не обращается.
 - `SMOKE_API_KEY=... uv run python -m app.smoke --api http://localhost:8000` - сценарий защиты через API с `X-API-KEY` аккаунта Aéza из белого списка с ролью `integration` или `admin`, после сида. Код выхода 1 и название шага при сбое; демо-данные возвращает как были, свой платёж прекращает
 
-Метрики Prometheus: `/metrics` у `api` (вне `/api/v1` и контракта, наружу его не пускает Caddy) и у `worker` на `WORKER_HTTP_PORT`. Все метрики объявлены в `core/metrics.py`; в метках только ограниченные значения, без идентификаторов, логинов и текстов ошибок (ADR-009). Время последнего тика - `worker_job_last_success_timestamp_seconds{job="scheduler"}`. На тик планировщика `worker` обновляет срез для дашборда: `payments_active`, `payment_occurrences_open` и `payment_occurrences_open_amount` (метки `state` - `overdue` или `due_soon`, `currency`); нажатия кнопок в Telegram - `telegram_actions_total`.
+Метрики Prometheus: `/metrics` у `api` (вне `/api/v1` и контракта, наружу его не пускает Caddy) и у `worker` на `WORKER_HTTP_PORT`. Все метрики объявлены в `core/metrics.py`; в метках только ограниченные значения, без идентификаторов, логинов и текстов ошибок (ADR-009). Время последнего тика - `worker_job_last_success_timestamp_seconds{job="scheduler"}`. На тик планировщика `worker` обновляет срез для дашборда: `payments_active`, `payment_occurrences_open` и `payment_occurrences_open_amount` (метки `state` - `overdue` или `due_soon`, `currency`); нажатия кнопок в Telegram - `telegram_actions_total`; открытые потоки событий - `live_clients`.
 
 Перед завершением задачи должны проходить все тесты, `ruff check`, `ruff format --check`, `mypy` и `lint-imports`.
 
@@ -95,9 +97,11 @@ backend/
 - Даты срока и оплаты - без времени, "сегодня" в часовом поясе из `TZ` (ADR-006).
 - Напоминания идут через очередь в базе (outbox): одно напоминание каждого вида (`due_soon`, `overdue`) на период и получателя гарантирует `unique`, отправка берёт строки через `for update skip locked` (ADR-004).
 - Дата ближайшей оплаты при создании и изменении платежа не раньше сегодня, фактическая дата оплаты не позже сегодня; иначе 400 `bad_request`.
-- Telegram: бот принимает `/start <код>`, `/stop` и две кнопки под напоминанием - "Оплачено" и "Напомнить завтра". Нажавший определяется по личной привязке; без неё кнопки ничего не меняют. Остальные действия - только в панели (ADR-010).
+- Telegram: бот принимает `/start <код>`, `/stop`, две кнопки под напоминанием - "Оплачено" и "Напомнить завтра" - и чек ответом файлом или фото на напоминание (отмечает оплату, если её не было). Нажавший и приславший чек определяются по личной привязке; без неё бот ничего не меняет. Остальные действия - только в панели (ADR-010, ADR-017).
+- Чек оплаты (ADR-017) - `apps/payments/receipts.py`: один на период, PDF, JPEG, PNG или WebP до 10 МБ, тип - по первым байтам файла. Файл в S3 (`core/storage.py`, ключ `receipts/<период>/<uuid>`), в базе - `occurrence_receipts`. Объект пишется до коммита записи, старый удаляется после; отмена оплаты удаляет запись, а объекты без записи старше суток удаляет задача `worker` `receipts_cleanup`. В тестах хранилище - `tests/storage_helpers.MemoryStorage`, `S3Storage` проверяется на настоящем Garage (`tests/core/test_storage.py`).
 - Получатели напоминаний: общий чат из `TELEGRAM_CHAT_ID`, личные чаты и групповые чаты, подключённые администратором (`/telegram-chats`, получатель в очереди `chat:<id>`, фильтр отделов).
 - Интеграционное событие пишется в той же транзакции, что и изменение (ADR-011).
+- События для панели (ADR-016): каждая запись журнала (`audit.record`) делает `pg_notify` в своей транзакции, `api` слушает канал (`core/live.py`) и раздаёт события в `GET /api/v1/events`. Новое действие, которое пишется в журнал, попадает в поток само; изменение без записи в журнал публикует событие через `core.live.publish`. Поток закрывается раз в 10 минут и после события о самом участнике, чтобы доступ проверялся заново.
 - Секреты (токен бота, пароли, токены сессий, ключи Aéza) не попадают в логи и ответы API.
 
 ## Переменные окружения
@@ -113,8 +117,9 @@ backend/
   - `ADMIN_EMAILS` - email аккаунтов Aéza администраторов через запятую; синхронизируются в белый список при каждом старте `api`, через API не меняются (ADR-014)
   - `AEZA_API_URL` - API Aéza, по умолчанию `https://my.aeza.ru/api`; `SESSION_TTL_HOURS` - срок сессии, по умолчанию 12
 - `api` и `worker` (`ReminderSettings`, `IntegrationSettings`) - в compose передаются обоим сервисам. `api` тоже нужен токен: по нему он узнаёт имя бота для ссылки привязки (без токена - 409), по `TELEGRAM_CHAT_ID` ставит напоминание о позднем платеже сразу, по адресам адаптеров создаёт доставки событий в транзакции изменения.
-  - `TELEGRAM_BOT_TOKEN` - без него `worker` не отправляет, только ставит напоминания в очередь; `TELEGRAM_CHAT_ID` - общий чат, необязателен, без токена - ошибка конфигурации; `TELEGRAM_PROXY_URL` - прокси `socks5://` или `http://`, необязателен (ADR-010, ADR-013); `REMINDER_DAYS_BEFORE` - по умолчанию 3
+  - `TELEGRAM_BOT_TOKEN` - без него `worker` не отправляет, только ставит напоминания в очередь; `TELEGRAM_CHAT_ID` - общий чат, необязателен, без токена - ошибка конфигурации; `TELEGRAM_PROXY_URL` - прокси `socks5://` или `http://`, необязателен (ADR-010, ADR-013); `REMINDER_DAYS_BEFORE` - общее окно напоминаний, по умолчанию 3; окно из панели (`PATCH /settings`, таблица `reminder_defaults`) важнее, пока его не сбросят (`null`), а у платежа может быть своё (`reminderDaysBefore`)
   - `WEBHOOK_URL` и `WEBHOOK_SECRET` (обязателен при адресе), `KAFKA_BROKERS` (через запятую), `KAFKA_TOPIC` (`invoice-keeper.events`) - адаптеры событий, необязательны; без них события только хранятся (ADR-011)
+  - `S3_ENDPOINT_URL`, `S3_BUCKET` (`receipts`), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION` (`us-east-1`, у Garage - `garage`) - хранилище чеков (`StorageSettings`, ADR-017); без адреса чеки выключены (409 `receipts_disabled`, `receiptsEnabled` в `GET /settings` - `false`)
 - `TZ` - единый часовой пояс, имя IANA
 - `LOG_LEVEL` - по умолчанию `info`
 - `DEMO_USER_EMAIL` - email аккаунта Aéza для участника демо с ролью `user`, только для `app.seed`, необязателен

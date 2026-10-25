@@ -21,3 +21,8 @@ export function formatOverdueCount(count: number) {
 export function occurrenceTitle(occurrence: PaymentOccurrence) {
 	return `${occurrence.recurringPayment.name}, срок ${formatDate(occurrence.dueDate)}`;
 }
+
+/** Подпись действия с чеком в меню и листе: посмотреть свой или приложить новый. */
+export function receiptActionLabel(occurrence: PaymentOccurrence) {
+	return occurrence.receipt ? 'Чек' : 'Приложить чек';
+}

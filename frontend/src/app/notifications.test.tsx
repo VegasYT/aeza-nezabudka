@@ -8,6 +8,8 @@ import type {
 	GroupChat,
 	GroupChatUpdate,
 	Role,
+	SystemSettings,
+	SystemSettingsUpdate,
 	TelegramLink,
 	TelegramSettingsUpdate,
 	TelegramStatus,
@@ -19,12 +21,17 @@ import {
 	handleCreateGroupChatLink,
 	handleCreateTelegramLink,
 	handleDeleteGroupChat,
+	handleGetSettings,
 	handleGetTelegramStatus,
 	handleListGroupChats,
+	handleStreamEvents,
 	handleUnlinkTelegram,
 	handleUpdateGroupChat,
+	handleUpdateSettings,
 	handleUpdateTelegramSettings,
+	serveLiveEvents,
 	serveNotificationsScreen,
+	serveSettings,
 	signIn,
 	stubMatchMedia,
 	telegramStatus,
@@ -157,10 +164,15 @@ function serveTelegram({
 	};
 }
 
+/** Открывает «Уведомления»; возвращает поток событий, через который сервер сообщает о привязке. */
 function openPage(role: Role = 'user') {
 	signIn(role);
 
-	return renderApp('/notifications');
+	const live = serveLiveEvents();
+
+	renderApp('/notifications');
+
+	return live;
 }
 
 // Остров получает заголовок, когда состояние загружено; первый рендер приложения в файле долгий.
@@ -242,8 +254,7 @@ describe('подключение по ссылке на бота', () => {
 			},
 		});
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-
-		openPage();
+		const live = openPage();
 
 		const island = await personalIsland();
 
@@ -265,10 +276,35 @@ describe('подключение по ссылке на бота', () => {
 		).toBeInTheDocument();
 
 		server.setStatus(linked);
-		await act(() => vi.advanceTimersByTimeAsync(3000));
+		live.change({ type: 'telegram.changed', entityType: 'telegram' });
 
 		expect(await within(island).findByText('Подключён')).toBeInTheDocument();
 		expect(within(island).getByText('Анна')).toBeInTheDocument();
+	});
+
+	it('без потока событий привязка появляется опросом раз в 3 секунды', async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+
+		const server = serveTelegram();
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+		signIn();
+		apiServer.use(
+			handleStreamEvents(() => new HttpResponse(null, { status: 503 }))
+		);
+		renderApp('/notifications');
+
+		const island = await personalIsland();
+
+		await user.click(
+			within(island).getByRole('button', { name: 'Подключить Telegram' })
+		);
+		await within(island).findByText('Ждём подтверждения из Telegram');
+
+		server.setStatus(linked);
+		await act(() => vi.advanceTimersByTimeAsync(3000));
+
+		expect(await within(island).findByText('Подключён')).toBeInTheDocument();
 	});
 
 	it('устаревшая ссылка предлагает новую', async () => {
@@ -568,6 +604,20 @@ it('общий чат и образцы напоминаний от сегодн
 	).toBeInTheDocument();
 });
 
+it('с чеками на сервере подсказывает, как приложить чек из Telegram', async () => {
+	serveTelegram();
+	serveSettings({ receiptsEnabled: true });
+	openPage();
+
+	const samples = await screen.findByRole('region', {
+		name: 'Как выглядят напоминания',
+	});
+
+	expect(samples).toHaveTextContent(
+		'Чтобы приложить чек, ответьте файлом на сообщение бота.'
+	);
+});
+
 describe('групповые чаты', () => {
 	it('администратор видит группы с отделами и датой', async () => {
 		serveTelegram({ chats: [buh, duty] });
@@ -635,12 +685,10 @@ describe('групповые чаты', () => {
 	});
 
 	it('новая группа появляется в списке сама, ожидание закрывается', async () => {
-		vi.useFakeTimers({ shouldAdvanceTime: true });
-
 		const server = serveTelegram({ chats: [buh] });
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		const user = userEvent.setup();
 
-		openPage('admin');
+		const live = openPage('admin');
 
 		const island = await screen.findByRole('region', {
 			name: 'Групповые чаты',
@@ -661,7 +709,7 @@ describe('групповые чаты', () => {
 			buh,
 			chat({ id: 'c-fin', title: 'Финансы', linkedAt: '2026-10-24T11:00:00Z' }),
 		]);
-		await act(() => vi.advanceTimersByTimeAsync(3000));
+		live.change({ type: 'telegram_chat.linked', entityType: 'telegram_chat' });
 
 		expect(await within(island).findByText('Финансы')).toBeInTheDocument();
 		expect(
@@ -670,12 +718,10 @@ describe('групповые чаты', () => {
 	});
 
 	it('команда для темы копируется, новая тема группы закрывает ожидание', async () => {
-		vi.useFakeTimers({ shouldAdvanceTime: true });
-
 		const server = serveTelegram({ chats: [buh] });
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		const user = userEvent.setup();
 
-		openPage('admin');
+		const live = openPage('admin');
 
 		const island = await screen.findByRole('region', {
 			name: 'Групповые чаты',
@@ -711,7 +757,7 @@ describe('групповые чаты', () => {
 				linkedAt: '2026-10-24T11:00:00Z',
 			}),
 		]);
-		await act(() => vi.advanceTimersByTimeAsync(3000));
+		live.change({ type: 'telegram_chat.linked', entityType: 'telegram_chat' });
 
 		expect(
 			await within(island).findByText('Бухгалтерия → Аренда')
@@ -756,12 +802,10 @@ describe('групповые чаты', () => {
 	});
 
 	it('«Подключить снова» ждёт, пока бота вернут в эту группу', async () => {
-		vi.useFakeTimers({ shouldAdvanceTime: true });
-
 		const server = serveTelegram({ chats: [buh, { ...duty, blocked: true }] });
-		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		const user = userEvent.setup();
 
-		openPage('admin');
+		const live = openPage('admin');
 
 		const island = await screen.findByRole('region', {
 			name: 'Групповые чаты',
@@ -784,7 +828,7 @@ describe('групповые чаты', () => {
 		expect(island).toHaveTextContent('Отделы группы останутся прежними.');
 
 		server.setChats([buh, duty]);
-		await act(() => vi.advanceTimersByTimeAsync(3000));
+		live.change({ type: 'telegram_chat.linked', entityType: 'telegram_chat' });
 
 		await waitFor(() =>
 			expect(
@@ -901,5 +945,88 @@ describe('групповые чаты', () => {
 				screen.queryByRole('row', { name: /ИТ-дежурные/ })
 			).not.toBeInTheDocument()
 		);
+	});
+});
+
+describe('общее окно напоминаний', () => {
+	/** Настройки на «сервере»: `PATCH /settings` меняет окно, `null` возвращает значение сервера 3. */
+	function serveWindow() {
+		const bodies: SystemSettingsUpdate[] = [];
+		let window = 3;
+		const settings = (): SystemSettings => ({
+			today: '2026-10-24',
+			timezone: 'Europe/Moscow',
+			reminderDaysBefore: window,
+			reminderDaysBeforeDefault: 3,
+			receiptsEnabled: false,
+		});
+
+		serveTelegram();
+		apiServer.use(
+			handleGetSettings(() => HttpResponse.json(settings())),
+			handleUpdateSettings(async ({ request }) => {
+				const body = (await request.json()) as SystemSettingsUpdate;
+
+				bodies.push(body);
+				window = body.reminderDaysBefore ?? 3;
+
+				return HttpResponse.json(settings());
+			})
+		);
+
+		return bodies;
+	}
+
+	it('администратор меняет окно, «Как на сервере» возвращает значение сервера', async () => {
+		const bodies = serveWindow();
+		const user = userEvent.setup();
+
+		openPage('admin');
+
+		const island = await screen.findByRole('region', {
+			name: 'Когда напоминать',
+		});
+		const field = within(island).getByLabelText('За сколько дней до срока');
+		const save = within(island).getByRole('button', { name: 'Сохранить' });
+		const reset = /^Как на\sсервере \(3\)$/;
+
+		expect(field).toHaveValue('3');
+		expect(save).toBeDisabled();
+		expect(
+			within(island).queryByRole('button', { name: reset })
+		).not.toBeInTheDocument();
+
+		await user.clear(field);
+		await user.type(field, '5');
+		await user.click(save);
+
+		expect(
+			await screen.findByText('Окно напоминаний сохранено')
+		).toBeInTheDocument();
+		expect(bodies).toEqual([{ reminderDaysBefore: 5 }]);
+
+		await user.click(within(island).getByRole('button', { name: reset }));
+
+		await waitFor(() =>
+			expect(bodies).toEqual([
+				{ reminderDaysBefore: 5 },
+				{ reminderDaysBefore: null },
+			])
+		);
+		await waitFor(() => expect(field).toHaveValue('3'));
+		expect(
+			within(island).queryByRole('button', { name: reset })
+		).not.toBeInTheDocument();
+	});
+
+	it('пользователь окна не видит', async () => {
+		serveWindow();
+		openPage();
+
+		await personalIsland();
+
+		expect(
+			screen.queryByRole('region', { name: 'Когда напоминать' })
+		).not.toBeInTheDocument();
 	});
 });

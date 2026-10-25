@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -146,4 +147,20 @@ class TelegramLinkDepartment(Base):
     )
     department_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("departments.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class ReminderDefaults(Base):
+    """Общее окно напоминаний из панели; пока строки нет, действует REMINDER_DAYS_BEFORE."""
+
+    __tablename__ = "reminder_defaults"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="single_row"),
+        CheckConstraint("days_before between 0 and 30", name="days_before_range"),
+    )
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
+    days_before: Mapped[int] = mapped_column(SmallInteger)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

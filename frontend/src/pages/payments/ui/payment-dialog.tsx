@@ -129,6 +129,7 @@ export function PaymentDialog({
 						pendingId={pendingId}
 						onMark={handlers.onMark}
 						onOpenActions={onOpenActions}
+						onReceipt={handlers.onReceipt}
 					/>
 				) : (
 					<OccurrencesTable

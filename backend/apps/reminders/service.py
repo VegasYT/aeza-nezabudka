@@ -30,6 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker
 
 from apps.audit.service import record
+from apps.payments.domain import RECEIPT_MAX_BYTES
 from apps.payments.service import (
     OccurrenceSubject,
     occurrence_subjects,
@@ -55,6 +56,7 @@ from apps.reminders.models import (
     GROUP_RECIPIENT,
     PERSONAL_PURPOSE,
     Notification,
+    ReminderDefaults,
     TelegramChat,
     TelegramChatDepartment,
     TelegramLink,
@@ -66,6 +68,7 @@ from apps.reminders.telegram import (
     ChatBlocked,
     DeliveryError,
     IncomingCallback,
+    IncomingFile,
     IncomingMessage,
     Notifier,
     PermanentDeliveryError,
@@ -75,6 +78,7 @@ from core.auth import Principal, Role
 from core.clock import Clock
 from core.config import ReminderSettings
 from core.errors import AppError, invalid_field, not_found
+from core.live import LiveEvent, publish
 from core.metrics import NOTIFICATIONS, TELEGRAM_ACTIONS
 from core.retry import retry_delay
 
@@ -107,8 +111,70 @@ async def reminders_sent_at(
         return await repository.last_sent(session, occurrence_ids)
 
 
+async def reminder_days(session: AsyncSession, settings: ReminderSettings) -> int:
+    """Общее окно напоминаний: заданное в панели, иначе REMINDER_DAYS_BEFORE."""
+    defaults = await session.get(ReminderDefaults, 1)
+    return settings.reminder_days_before if defaults is None else defaults.days_before
+
+
+class ReminderWindow:
+    """Общее окно напоминаний для настроек системы в панели."""
+
+    def __init__(
+        self, session_factory: async_sessionmaker[AsyncSession], settings: ReminderSettings
+    ) -> None:
+        self._session_factory = session_factory
+        self._settings = settings
+
+    @property
+    def default(self) -> int:
+        """Окно из настроек сервера: действует, пока его не задали в панели, и после сброса."""
+        return self._settings.reminder_days_before
+
+    async def current(self) -> int:
+        async with self._session_factory() as session:
+            return await reminder_days(session, self._settings)
+
+    async def change(self, actor: Principal, days: int | None) -> int:
+        """`None` возвращает окно из настроек сервера. Новые напоминания встают по новому окну
+        со следующего тика планировщика."""
+        async with self._session_factory() as session, session.begin():
+            return await _change_window(session, self._settings, actor, days)
+
+
+async def _change_window(
+    session: AsyncSession, settings: ReminderSettings, actor: Principal, days: int | None
+) -> int:
+    defaults = await session.get(ReminderDefaults, 1, with_for_update=True)
+    before = settings.reminder_days_before if defaults is None else defaults.days_before
+    if days is None:
+        if defaults is not None:
+            await session.delete(defaults)
+    elif defaults is None:
+        session.add(ReminderDefaults(id=1, days_before=days))
+    else:
+        defaults.days_before = days
+    after = settings.reminder_days_before if days is None else days
+    await record(
+        session,
+        actor,
+        "settings.updated",
+        "settings",
+        entity_name="Окно напоминаний",
+        details={
+            "before": {"reminder_days_before": before},
+            "after": {"reminder_days_before": after, "from_server_settings": days is None},
+        },
+    )
+    return after
+
+
+def reminder_window(request: Request) -> ReminderWindow:
+    return ReminderWindow(request.app.state.session_factory, request.app.state.reminder_settings)
+
+
 async def pending_stats(session: AsyncSession) -> tuple[int, datetime | None]:
-    """Сколько напоминаний ждёт отправки и когда создано старейшее."""
+    """Сколько напоминаний ждёт отправки и с какого момента ждёт самое давнее."""
     return await repository.pending_stats(session)
 
 
@@ -183,9 +249,9 @@ async def enqueue(
             first.add_columns(literal(ReminderKind.CREATED.value).label("kind")),
             _recipients(settings, personal=False),
         )
-    window_end = today + timedelta(days=settings.reminder_days_before)
+    window_days = await reminder_days(session, settings)
     candidates = union_all(
-        open_occurrence_departments(today, window_end, payment_ids).add_columns(
+        open_occurrence_departments(today, None, payment_ids, window_days=window_days).add_columns(
             literal(ReminderKind.DUE_SOON.value).label("kind")
         ),
         open_occurrence_departments(None, today - timedelta(days=1), payment_ids).add_columns(
@@ -320,13 +386,18 @@ class ReminderSender:
         subject = subjects.get(notification.occurrence_id)
         today = self._clock.today()
         kind = ReminderKind(notification.kind)
-        if subject is None or not still_relevant(
+        if subject is None:
+            return None
+        days_before = subject.reminder_days_before
+        if days_before is None:
+            days_before = await reminder_days(session, self._settings)
+        if not still_relevant(
             kind,
             subject.due_date,
             subject.paid,
             subject.active,
             today=today,
-            days_before=self._settings.reminder_days_before,
+            days_before=days_before,
         ):
             return None
         panel = self._settings.public_url
@@ -413,6 +484,10 @@ NOT_LINKED_ANSWER = (
     "Без привязки бот не знает, кто нажал кнопку."
 )
 PAID_ANSWER = "✅ Отмечено: оплачено сегодня"
+RECEIPT_REPLY = "🧾 Чек приложен к оплате"
+RECEIPTS_OFF_REPLY = "Чеки не настроены на сервере: приложите чек в панели"
+RECEIPT_TOO_BIG_REPLY = "Файл больше 10 МБ: сожмите его или приложите в панели"
+RECEIPT_DOWNLOAD_REPLY = "Не удалось получить файл из Telegram, попробуйте ещё раз"
 LATER_ANSWER = "⏰ Напомню завтра"
 LATER_DELAY = timedelta(days=1)
 
@@ -426,6 +501,8 @@ class CallbackResult:
 
 
 MarkPaid = Callable[[Principal, UUID], Awaitable[object]]
+# кто, к какому периоду, имя файла из Telegram, содержимое
+AttachReceipt = Callable[[Principal, UUID, str | None, bytes], Awaitable[object]]
 # короткие метки итога нажатия для метрики вместо текстов ответа
 _ACTION_RESULTS = {
     PAID_ANSWER: "done",
@@ -525,6 +602,16 @@ async def forget_user(session: AsyncSession, user_id: UUID) -> None:
     """Удаляет привязку и отменяет ожидающие личные напоминания пользователя."""
     await repository.cancel_pending(session, str(user_id))
     await repository.delete_link(session, user_id)
+    await _link_changed(session, user_id)
+
+
+async def _link_changed(session: AsyncSession, user_id: UUID) -> None:
+    """Личная привязка в журнал не пишется, поэтому панель владельца узнаёт о ней отдельно."""
+    await publish(session, LiveEvent("telegram.changed", "member", member_id=str(user_id)))
+
+
+async def _chats_changed(session: AsyncSession) -> None:
+    await publish(session, LiveEvent("telegram_chat.changed", "admins"))
 
 
 @dataclass(frozen=True)
@@ -551,13 +638,15 @@ class TelegramLinks:
         bot: BotUpdates | None,
         *,
         mark_paid: MarkPaid | None = None,
+        attach_receipt: AttachReceipt | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._clock = clock
         self._settings = settings
         self._bot = bot
-        # отметка оплаты через модуль платежей; в api не нужна, кнопки читает worker
+        # отметка оплаты и чек через модуль платежей; в api не нужны, сообщения бота читает worker
         self._mark_paid = mark_paid
+        self._attach_receipt = attach_receipt
 
     async def status(self, user: Principal) -> LinkStatus:
         async with self._session_factory() as session:
@@ -605,7 +694,7 @@ class TelegramLinks:
             await forget_user(session, user.id)
 
     async def handle(self, message: IncomingMessage) -> str | None:
-        """Команда боту; возвращает ответ. В группе понимает только `/start` с кодом группы."""
+        """Сообщение боту; возвращает ответ."""
         if (
             message.member_status is not None
             or message.new_title is not None
@@ -614,6 +703,12 @@ class TelegramLinks:
             async with self._session_factory() as session, session.begin():
                 await self._chat_changed(session, message)
             return None
+        if message.file is not None and message.reply_to is not None:
+            return await self._receipt(message, message.file, message.reply_to)
+        return await self._command(message)
+
+    async def _command(self, message: IncomingMessage) -> str | None:
+        """Команда текстом. В группе бот понимает только `/start` с кодом группы."""
         if message.text is None:
             return None
         command, _, argument = message.text.strip().partition(" ")
@@ -666,6 +761,51 @@ class TelegramLinks:
         if not subject.active:
             return CallbackResult("Платёж прекращён")
         return _Press(action, notification, Principal(link.user_id, link.login, Role.USER), subject)
+
+    async def _receipt(
+        self, message: IncomingMessage, file: IncomingFile, reply_to: int
+    ) -> str | None:
+        """Файл ответом на напоминание: отправитель - по личной привязке, как у кнопок.
+
+        Ответ на другое сообщение остаётся без реакции, чтобы бот не шумел в группе.
+        """
+        async with self._session_factory() as session:
+            notification = await self._reminder_message(session, message.chat_id, reply_to)
+            if notification is None:
+                return None
+            link = (
+                None
+                if message.from_id is None
+                else await repository.link_by_chat(session, message.from_id)
+            )
+        if link is None or link.member_disabled:
+            return NOT_LINKED_ANSWER
+        actor = Principal(link.user_id, link.login, Role.USER)
+        return await self._attach_file(actor, notification.occurrence_id, file)
+
+    async def _attach_file(self, actor: Principal, occurrence_id: UUID, file: IncomingFile) -> str:
+        if self._attach_receipt is None or self._bot is None:
+            return RECEIPTS_OFF_REPLY
+        if file.size is not None and file.size > RECEIPT_MAX_BYTES:
+            return RECEIPT_TOO_BIG_REPLY
+        try:
+            data = await self._bot.download(file.file_id)
+            await self._attach_receipt(actor, occurrence_id, file.name, data)
+        except DeliveryError:
+            return RECEIPT_DOWNLOAD_REPLY
+        except AppError as error:
+            # у ошибки проверки файла причина - в полях, общий текст боту ничего не скажет
+            return next(iter(error.fields.values())) if error.fields else error.message
+        return RECEIPT_REPLY
+
+    async def _reminder_message(
+        self, session: AsyncSession, chat_id: int, message_id: int
+    ) -> Notification | None:
+        for notification in await repository.sent_by_message(session, str(message_id)):
+            target = await destination(session, self._settings, notification.recipient)
+            if target is not None and target.chat_id == str(chat_id):
+                return notification
+        return None
 
     async def _postpone(self, session: AsyncSession, press: "_Press", who: str) -> CallbackResult:
         """То же напоминание уйдёт снова через сутки, если период ещё не оплатят."""
@@ -744,6 +884,7 @@ class TelegramLinks:
         link.personal_enabled = True
         link.linked_at = now
         link.blocked_at = None
+        await _link_changed(session, found.user_id)
         log.info("telegram_linked", user_id=str(found.user_id))
         return LINKED_REPLY
 
@@ -768,6 +909,7 @@ class TelegramLinks:
             topic = await repository.chat_connection(session, message.chat_id, message.thread_id)
             if topic is not None:
                 topic.topic_name = message.new_topic_name[:128]
+        await _chats_changed(session)
 
     async def _membership(self, session: AsyncSession, message: IncomingMessage) -> None:
         """Бота заблокировали, удалили из группы или вернули: отметка ставится сразу,
@@ -786,6 +928,11 @@ class TelegramLinks:
                 target.blocked_at = self._clock.now()
             elif not removed:
                 target.blocked_at = None
+        if any(isinstance(target, TelegramChat) for target in targets):
+            await _chats_changed(session)
+        for target in targets:
+            if isinstance(target, TelegramLink):
+                await _link_changed(session, target.user_id)
 
     async def _link_group(
         self, session: AsyncSession, message: IncomingMessage, code: str
@@ -836,6 +983,7 @@ class TelegramLinks:
         if link.blocked_at is None:
             return ALREADY_LINKED_REPLY
         link.blocked_at = None
+        await _link_changed(session, link.user_id)
         return RESUMED_REPLY
 
     async def _status(self, session: AsyncSession, link: TelegramLink | None) -> LinkStatus:

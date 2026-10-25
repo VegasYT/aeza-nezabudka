@@ -103,14 +103,30 @@ export function serveCurrentUserForToken(token: string, role: Role = 'user') {
 	return seen;
 }
 
-/** Ответ `GET /settings`: «сегодня» сервера (по умолчанию 24.10.2026) и окно напоминания. */
+/**
+ * Ответ `GET /settings`: «сегодня» сервера (по умолчанию 24.10.2026), общее окно напоминания,
+ * значение сервера и включены ли чеки (по умолчанию нет).
+ */
 export function serveSettings({
 	today = '2026-10-24',
 	reminderDaysBefore = 3,
-}: { today?: string; reminderDaysBefore?: number } = {}) {
+	reminderDaysBeforeDefault = reminderDaysBefore,
+	receiptsEnabled = false,
+}: {
+	today?: string;
+	reminderDaysBefore?: number;
+	reminderDaysBeforeDefault?: number;
+	receiptsEnabled?: boolean;
+} = {}) {
 	apiServer.use(
 		handleGetSettings({
-			body: { today, timezone: 'Europe/Moscow', reminderDaysBefore },
+			body: {
+				today,
+				timezone: 'Europe/Moscow',
+				reminderDaysBefore,
+				reminderDaysBeforeDefault,
+				receiptsEnabled,
+			},
 		})
 	);
 }

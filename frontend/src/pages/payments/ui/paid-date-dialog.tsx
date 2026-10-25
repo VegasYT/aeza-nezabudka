@@ -1,4 +1,12 @@
-import { Button, Drawer, Group, Modal, Stack, Text } from '@mantine/core';
+import {
+	Button,
+	Drawer,
+	FileInput,
+	Group,
+	Modal,
+	Stack,
+	Text,
+} from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { useState } from 'react';
 
@@ -11,6 +19,14 @@ import {
 import { type CalendarDate, daysBetween, formatDate } from '@shared/lib/dates';
 import { usePhone } from '@shared/lib/media';
 import { formatMoney } from '@shared/lib/money';
+import { IconPaperclip } from '@shared/ui/icons';
+
+import {
+	RECEIPT_ACCEPT,
+	RECEIPT_RULE,
+	receiptError,
+	receiptFileError,
+} from '../model/receipts';
 
 import classes from './payments-page.module.css';
 
@@ -36,12 +52,15 @@ function DialogBody({
 	today,
 	onClose,
 	onSubmit,
+	onAttach,
 }: {
 	occurrence: PaymentOccurrence;
 	mode: PaidDateMode;
 	today: CalendarDate;
 	onClose: () => void;
 	onSubmit: (paidOn: CalendarDate) => Promise<void>;
+	/** Загрузка чека после отметки; нет, если чеки выключены. */
+	onAttach?: (file: File) => Promise<unknown>;
 }) {
 	const phone = usePhone();
 	const [paidOn, setPaidOn] = useState<string | null>(
@@ -49,7 +68,31 @@ function DialogBody({
 	);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [receipt, setReceipt] = useState<File | null>(null);
+	const [receiptProblem, setReceiptProblem] = useState<string | null>(null);
+	// Оплата уже отмечена, а чек не загрузился: остаётся только повторить загрузку.
+	const [marked, setMarked] = useState(false);
+	const withReceipt = mode === 'other' && onAttach !== undefined;
 	const changed = paidOn !== null && paidOn !== occurrence.paidOn;
+
+	const attach = async () => {
+		if (!receipt || !onAttach) {
+			return true;
+		}
+
+		try {
+			await onAttach(receipt);
+
+			return true;
+		} catch (attachError) {
+			setMarked(true);
+			setReceiptProblem(
+				`Оплата отмечена, а\u00a0чек не\u00a0загрузился. ${receiptError(attachError)}`
+			);
+
+			return false;
+		}
+	};
 
 	const save = async () => {
 		if (!paidOn) {
@@ -60,8 +103,13 @@ function DialogBody({
 		setError(null);
 
 		try {
-			await onSubmit(paidOn);
-			onClose();
+			if (!marked) {
+				await onSubmit(paidOn);
+			}
+
+			if (await attach()) {
+				onClose();
+			}
 		} catch (submitError) {
 			setError(
 				getApiFieldErrors(submitError).paidOn ??
@@ -91,6 +139,8 @@ function DialogBody({
 				</Text>
 				<DatePicker
 					aria-labelledby='paid-on-label'
+					// После отметки дата уже сохранена: осталось приложить чек.
+					getDayProps={marked ? () => ({ disabled: true }) : undefined}
 					fullWidth={phone}
 					size={phone ? 'lg' : undefined}
 					value={paidOn}
@@ -119,24 +169,60 @@ function DialogBody({
 					{paidOn ? describe(occurrence, paidOn) : '—'}
 				</span>
 			</div>
+			{withReceipt && (
+				<FileInput
+					label='Чек'
+					placeholder='Необязательно'
+					accept={RECEIPT_ACCEPT}
+					clearable
+					leftSection={<IconPaperclip size={18} />}
+					value={receipt}
+					onChange={(file) => {
+						const problem = file ? receiptFileError(file) : null;
+
+						setReceipt(problem ? null : file);
+						setReceiptProblem(problem);
+					}}
+					description={RECEIPT_RULE}
+					error={receiptProblem}
+					inputWrapperOrder={['label', 'input', 'description', 'error']}
+				/>
+			)}
 			<Group justify='flex-end' gap='xs'>
 				<Button variant='subtle' color='gray' onClick={onClose}>
-					Отмена
+					{marked ? 'Закрыть' : 'Отмена'}
 				</Button>
-				<Button disabled={!changed} loading={saving} onClick={save}>
-					Сохранить
+				<Button
+					// Неподходящий файл не уходит: сначала его надо заменить или убрать.
+					disabled={
+						marked
+							? !receipt
+							: !changed || (receipt === null && receiptProblem !== null)
+					}
+					loading={saving}
+					onClick={() => {
+						// Повтор загрузки: прежняя ошибка уже не относится к этой попытке.
+						setReceiptProblem(null);
+						void save();
+					}}
+				>
+					{marked ? 'Загрузить чек' : 'Сохранить'}
 				</Button>
 			</Group>
 		</Stack>
 	);
 }
 
-/** Окно даты оплаты: «Оплачено в другой день» и «Исправить дату» с пересчётом просрочки до сохранения; на телефоне - лист снизу. */
+/**
+ * Окно даты оплаты: «Оплачено в другой день» (с необязательным чеком) и «Исправить дату»
+ * с пересчётом просрочки до сохранения; на телефоне - лист снизу.
+ */
 export function PaidDateDialog({
 	target,
 	today,
 	onClose,
 	onSubmit,
+	onAttach,
 }: {
 	target: { occurrence: PaymentOccurrence; mode: PaidDateMode } | null;
 	today: CalendarDate;
@@ -146,6 +232,8 @@ export function PaidDateDialog({
 		mode: PaidDateMode,
 		paidOn: CalendarDate
 	) => Promise<void>;
+	/** Чек к отмеченной оплате; без него поля «Чек» нет. */
+	onAttach?: (occurrence: PaymentOccurrence, file: File) => Promise<unknown>;
 }) {
 	const phone = usePhone();
 	const title =
@@ -162,6 +250,7 @@ export function PaidDateDialog({
 				today={today}
 				onClose={onClose}
 				onSubmit={(paidOn) => onSubmit(target.occurrence, target.mode, paidOn)}
+				onAttach={onAttach && ((file) => onAttach(target.occurrence, file))}
 			/>
 		</>
 	);

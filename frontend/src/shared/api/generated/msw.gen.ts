@@ -2,7 +2,7 @@
 
 import { http, type HttpHandler, HttpResponse, type HttpResponseResolver, type RequestHandlerOptions as RequestHandlerOptions2 } from 'msw';
 
-import type { ClientOptions, CreateDepartmentData, CreateDepartmentResponses, CreateGroupChatLinkResponses, CreateRecurringPaymentData, CreateRecurringPaymentResponses, CreateTelegramLinkResponses, CreateUserData, CreateUserResponses, DeleteDepartmentResponses, DeleteGroupChatResponses, DeleteUserResponses, ExchangeChallengeData, ExchangeChallengeResponses, GetCurrentUserResponses, GetPaymentOccurrenceResponses, GetPaymentsForecastResponses, GetPaymentsSummaryResponses, GetRecurringPaymentResponses, GetSettingsResponses, GetTelegramStatusResponses, ListAuditLogResponses, ListDepartmentsResponses, ListGroupChatsResponses, ListPaymentOccurrencesResponses, ListRecurringPaymentsResponses, ListUsersResponses, LoginData, LoginResponses, LogoutResponses, ResumeRecurringPaymentData, ResumeRecurringPaymentResponses, StopRecurringPaymentResponses, SubmitTotpData, SubmitTotpResponses, UnlinkTelegramResponses, UpdateDepartmentData, UpdateDepartmentResponses, UpdateGroupChatData, UpdateGroupChatResponses, UpdatePaymentOccurrenceData, UpdatePaymentOccurrenceResponses, UpdateRecurringPaymentData, UpdateRecurringPaymentResponses, UpdateTelegramSettingsData, UpdateTelegramSettingsResponses, UpdateUserData, UpdateUserResponses } from './types.gen';
+import type { AttachReceiptData, AttachReceiptResponses, ClientOptions, CreateDepartmentData, CreateDepartmentResponses, CreateGroupChatLinkResponses, CreateRecurringPaymentData, CreateRecurringPaymentResponses, CreateTelegramLinkResponses, CreateUserData, CreateUserResponses, DeleteDepartmentResponses, DeleteGroupChatResponses, DeleteReceiptResponses, DeleteUserResponses, ExchangeChallengeData, ExchangeChallengeResponses, GetCurrentUserResponses, GetPaymentOccurrenceResponses, GetPaymentsForecastResponses, GetPaymentsSummaryResponses, GetReceiptResponses, GetRecurringPaymentResponses, GetSettingsResponses, GetTelegramStatusResponses, ListAuditLogResponses, ListDepartmentsResponses, ListGroupChatsResponses, ListPaymentOccurrencesResponses, ListRecurringPaymentsResponses, ListUsersResponses, LoginData, LoginResponses, LogoutResponses, ResumeRecurringPaymentData, ResumeRecurringPaymentResponses, StopRecurringPaymentResponses, StreamEventsResponses, SubmitTotpData, SubmitTotpResponses, UnlinkTelegramResponses, UpdateDepartmentData, UpdateDepartmentResponses, UpdateGroupChatData, UpdateGroupChatResponses, UpdatePaymentOccurrenceData, UpdatePaymentOccurrenceResponses, UpdateRecurringPaymentData, UpdateRecurringPaymentResponses, UpdateSettingsData, UpdateSettingsResponses, UpdateTelegramSettingsData, UpdateTelegramSettingsResponses, UpdateUserData, UpdateUserResponses } from './types.gen';
 
 export type RequestHandlerOptions = RequestHandlerOptions2 & {
     baseUrl?: ClientOptions['baseURL'];
@@ -527,6 +527,99 @@ export function handleUpdatePaymentOccurrence(response?: HandleUpdatePaymentOccu
     }, options);
 }
 
+export type HandleDeleteReceiptResponse = {
+    body: DeleteReceiptResponses[204];
+    status?: 204;
+};
+
+/**
+ * Handler for the `DELETE /api/v1/payment-occurrences/{occurrence_id}/receipt` operation.
+ */
+export function handleDeleteReceipt(response?: HandleDeleteReceiptResponse | HttpResponseResolver<{
+    occurrence_id: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.delete<{
+        occurrence_id: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/v1/payment-occurrences/:occurrence_id/receipt`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 204 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleGetReceiptResponse = {
+    body: GetReceiptResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/v1/payment-occurrences/{occurrence_id}/receipt` operation.
+ */
+export function handleGetReceipt(response?: HandleGetReceiptResponse | HttpResponseResolver<{
+    occurrence_id: string;
+}, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<{
+        occurrence_id: string;
+    }, never>(`${options?.baseUrl ?? '*'}/api/v1/payment-occurrences/:occurrence_id/receipt`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleAttachReceiptResponse = {
+    body: AttachReceiptResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PUT /api/v1/payment-occurrences/{occurrence_id}/receipt` operation.
+ */
+export function handleAttachReceipt(response?: HandleAttachReceiptResponse | HttpResponseResolver<{
+    occurrence_id: string;
+}, AttachReceiptData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.put<{
+        occurrence_id: string;
+    }, AttachReceiptData['body']>(`${options?.baseUrl ?? '*'}/api/v1/payment-occurrences/:occurrence_id/receipt`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleGetPaymentsSummaryResponse = {
     body: GetPaymentsSummaryResponses[200];
     status?: 200;
@@ -948,6 +1041,33 @@ export function handleListAuditLog(response?: HandleListAuditLogResponse | HttpR
     }, options);
 }
 
+export type HandleStreamEventsResponse = {
+    body: StreamEventsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `GET /api/v1/events` operation.
+ */
+export function handleStreamEvents(response?: HandleStreamEventsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
+    return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/v1/events`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return new HttpResponse(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
 export type HandleGetSettingsResponse = {
     body: GetSettingsResponses[200];
     status?: 200;
@@ -958,6 +1078,33 @@ export type HandleGetSettingsResponse = {
  */
 export function handleGetSettings(response?: HandleGetSettingsResponse | HttpResponseResolver<never, never>, options?: RequestHandlerOptions): HttpHandler {
     return http.get<never, never>(`${options?.baseUrl ?? '*'}/api/v1/settings`, info => {
+        if (typeof response === 'function') {
+            return response(info);
+        }
+        const body = response?.body;
+        if (body !== undefined) {
+            return HttpResponse.json(body, { status: response?.status ?? 200 });
+        }
+        if (options?.responseFallback === 'passthrough') {
+            return;
+        }
+        return new Response('Not Implemented', {
+            status: 501,
+            statusText: 'Not Implemented'
+        });
+    }, options);
+}
+
+export type HandleUpdateSettingsResponse = {
+    body: UpdateSettingsResponses[200];
+    status?: 200;
+};
+
+/**
+ * Handler for the `PATCH /api/v1/settings` operation.
+ */
+export function handleUpdateSettings(response?: HandleUpdateSettingsResponse | HttpResponseResolver<never, UpdateSettingsData['body']>, options?: RequestHandlerOptions): HttpHandler {
+    return http.patch<never, UpdateSettingsData['body']>(`${options?.baseUrl ?? '*'}/api/v1/settings`, info => {
         if (typeof response === 'function') {
             return response(info);
         }
@@ -1049,6 +1196,18 @@ export type MswHandlerFactories = {
      */
     updatePaymentOccurrence: typeof handleUpdatePaymentOccurrence;
     /**
+     * Handler for the `DELETE /api/v1/payment-occurrences/{occurrence_id}/receipt` operation.
+     */
+    deleteReceipt: typeof handleDeleteReceipt;
+    /**
+     * Handler for the `GET /api/v1/payment-occurrences/{occurrence_id}/receipt` operation.
+     */
+    getReceipt: typeof handleGetReceipt;
+    /**
+     * Handler for the `PUT /api/v1/payment-occurrences/{occurrence_id}/receipt` operation.
+     */
+    attachReceipt: typeof handleAttachReceipt;
+    /**
      * Handler for the `GET /api/v1/payments/summary` operation.
      */
     getPaymentsSummary: typeof handleGetPaymentsSummary;
@@ -1109,9 +1268,17 @@ export type MswHandlerFactories = {
      */
     listAuditLog: typeof handleListAuditLog;
     /**
+     * Handler for the `GET /api/v1/events` operation.
+     */
+    streamEvents: typeof handleStreamEvents;
+    /**
      * Handler for the `GET /api/v1/settings` operation.
      */
     getSettings: typeof handleGetSettings;
+    /**
+     * Handler for the `PATCH /api/v1/settings` operation.
+     */
+    updateSettings: typeof handleUpdateSettings;
 };
 
 export type CreateMswHandlersResult = {
@@ -1147,6 +1314,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         listPaymentOccurrences: wrap(handleListPaymentOccurrences),
         getPaymentOccurrence: wrap(handleGetPaymentOccurrence),
         updatePaymentOccurrence: wrap(handleUpdatePaymentOccurrence),
+        deleteReceipt: wrap(handleDeleteReceipt),
+        getReceipt: wrap(handleGetReceipt),
+        attachReceipt: wrap(handleAttachReceipt),
         getPaymentsSummary: wrap(handleGetPaymentsSummary),
         getPaymentsForecast: wrap(handleGetPaymentsForecast),
         listDepartments: wrap(handleListDepartments),
@@ -1162,7 +1332,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
         deleteGroupChat: wrap(handleDeleteGroupChat),
         updateGroupChat: wrap(handleUpdateGroupChat),
         listAuditLog: wrap(handleListAuditLog),
-        getSettings: wrap(handleGetSettings)
+        streamEvents: wrap(handleStreamEvents),
+        getSettings: wrap(handleGetSettings),
+        updateSettings: wrap(handleUpdateSettings)
     };
     const all: CreateMswHandlersResult['all'] = (options = {}) => {
         type OverrideValue<R> = R | [
@@ -1177,6 +1349,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.submitTotp, overrides.submitTotp),
             invoke(pick.createTelegramLink, overrides.createTelegramLink),
             invoke(pick.resumeRecurringPayment, overrides.resumeRecurringPayment),
+            invoke(pick.deleteReceipt, overrides.deleteReceipt),
+            invoke(pick.getReceipt, overrides.getReceipt),
+            invoke(pick.attachReceipt, overrides.attachReceipt),
             invoke(pick.login, overrides.login),
             invoke(pick.exchangeChallenge, overrides.exchangeChallenge),
             invoke(pick.logout, overrides.logout),
@@ -1207,7 +1382,9 @@ export function createMswHandlers(config: RequestHandlerOptions = {}): CreateMsw
             invoke(pick.createDepartment, overrides.createDepartment),
             invoke(pick.listGroupChats, overrides.listGroupChats),
             invoke(pick.listAuditLog, overrides.listAuditLog),
-            invoke(pick.getSettings, overrides.getSettings)
+            invoke(pick.streamEvents, overrides.streamEvents),
+            invoke(pick.getSettings, overrides.getSettings),
+            invoke(pick.updateSettings, overrides.updateSettings)
         ];
     };
     return { all, pick };

@@ -31,7 +31,7 @@ from apps.payments.domain import (
     occurrences_to_create,
     planned_between,
 )
-from apps.payments.models import PaymentOccurrence, RecurringPayment
+from apps.payments.models import OccurrenceReceipt, PaymentOccurrence, RecurringPayment
 from apps.payments.schemas import (
     WITHOUT_DEPARTMENT,
     Currency,
@@ -69,6 +69,7 @@ class PlannedRow:
     due_date: date
     amount_minor: int
     currency: Currency
+    reminder_days_before: int | None
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class OccurrenceRow:
     payment_stopped: bool
     department_id: UUID | None
     department_name: str | None
+    reminder_days_before: int | None
 
 
 def schedule_of(payment: RecurringPayment) -> Schedule:
@@ -194,6 +196,13 @@ async def get_payment(
     return None if row is None else _payment_row(row, today)
 
 
+async def delete_receipt(session: AsyncSession, occurrence_id: UUID) -> None:
+    """Запись о чеке; объект в хранилище без неё удалит очистка чеков."""
+    await session.execute(
+        delete(OccurrenceReceipt).where(OccurrenceReceipt.occurrence_id == occurrence_id)
+    )
+
+
 async def payment_occurrences(session: AsyncSession, payment_id: UUID) -> list[PaymentOccurrence]:
     result = await session.scalars(
         select(PaymentOccurrence)
@@ -289,13 +298,20 @@ _OCCURRENCE_COLUMNS = (
     RecurringPayment.stopped_at,
     RecurringPayment.department_id,
     department_name(RecurringPayment.department_id),
+    RecurringPayment.reminder_days_before,
 )
 
 
 def _occurrence_row(
-    row: Row[PaymentOccurrence, str, datetime | None, UUID | None, str],
+    row: Row[PaymentOccurrence, str, datetime | None, UUID | None, str, int | None],
 ) -> OccurrenceRow:
-    return OccurrenceRow(row[0], row[1], row[2] is not None, row[3], row[4])
+    return OccurrenceRow(row[0], row[1], row[2] is not None, row[3], row[4], row[5])
+
+
+def _in_window(today: date, default_days: int) -> ColumnElement[bool]:
+    """Срок не позже окна напоминания: своего у платежа или общего."""
+    days = func.coalesce(RecurringPayment.reminder_days_before, default_days)
+    return PaymentOccurrence.due_date - today <= days
 
 
 async def list_occurrences(
@@ -342,9 +358,13 @@ async def get_occurrences(session: AsyncSession, ids: Sequence[UUID]) -> list[Oc
 
 
 async def open_occurrences(
-    session: AsyncSession, due_from: date | None, due_to: date | None
+    session: AsyncSession,
+    due_from: date | None,
+    due_to: date | None,
+    *,
+    window_days: int | None = None,
 ) -> list[OccurrenceRow]:
-    ids = open_occurrence_ids(due_from, due_to, None)
+    ids = open_occurrence_ids(due_from, due_to, None, window_days=window_days)
     rows = await session.execute(
         select(*_OCCURRENCE_COLUMNS).join(RecurringPayment).where(PaymentOccurrence.id.in_(ids))
     )
@@ -352,9 +372,16 @@ async def open_occurrences(
 
 
 def open_occurrence_ids(
-    due_from: date | None, due_to: date | None, payment_ids: Sequence[UUID] | None
+    due_from: date | None,
+    due_to: date | None,
+    payment_ids: Sequence[UUID] | None,
+    *,
+    window_days: int | None = None,
 ) -> Select[UUID]:
-    """Неоплаченные периоды действующих платежей со сроком в границах (включительно)."""
+    """Неоплаченные периоды действующих платежей со сроком в границах (включительно).
+
+    `window_days` - общее окно напоминания: срок не позже `due_from` плюс окно платежа.
+    """
     statement = (
         select(PaymentOccurrence.id)
         .join(RecurringPayment)
@@ -366,6 +393,8 @@ def open_occurrence_ids(
         statement = statement.where(PaymentOccurrence.due_date <= due_to)
     if payment_ids is not None:
         statement = statement.where(PaymentOccurrence.recurring_payment_id.in_(payment_ids))
+    if window_days is not None and due_from is not None:
+        statement = statement.where(_in_window(due_from, window_days))
     return statement
 
 
@@ -386,12 +415,13 @@ def open_occurrence_departments(
     payment_ids: Sequence[UUID] | None,
     *,
     first_only: bool = False,
+    window_days: int | None = None,
 ) -> Select[UUID, UUID | None]:
     """То же, что `open_occurrence_ids`, вместе с отделом платежа; `first_only` - только
     ближайший период."""
-    statement = open_occurrence_ids(due_from, due_to, payment_ids).add_columns(
-        RecurringPayment.department_id
-    )
+    statement = open_occurrence_ids(
+        due_from, due_to, payment_ids, window_days=window_days
+    ).add_columns(RecurringPayment.department_id)
     if first_only:
         statement = statement.order_by(PaymentOccurrence.due_date).limit(1)
     return statement
@@ -410,7 +440,7 @@ async def active_counts(session: AsyncSession, department_ids: Sequence[UUID]) -
 
 
 async def open_snapshot(
-    session: AsyncSession, today: date, window_end: date
+    session: AsyncSession, today: date, window_days: int
 ) -> tuple[int, list[tuple[str, str, int, int]]]:
     """Действующие платежи и неоплаченные периоды по состоянию и валюте: (state, currency,
     count, amount_minor). Просроченные считаются и у прекращённых платежей - долг остаётся."""
@@ -433,10 +463,7 @@ async def open_snapshot(
             PaymentOccurrence.paid_on.is_(None),
             or_(
                 overdue,
-                and_(
-                    PaymentOccurrence.due_date <= window_end,
-                    RecurringPayment.stopped_at.is_(None),
-                ),
+                and_(_in_window(today, window_days), RecurringPayment.stopped_at.is_(None)),
             ),
         )
         .group_by(state, PaymentOccurrence.currency)
@@ -508,6 +535,7 @@ async def planned_occurrences(
             item.due_date,
             payment.amount_minor,
             Currency(payment.currency),
+            payment.reminder_days_before,
         )
         for payment, last_seq, existing, name in (await session.execute(statement)).all()
         for item in planned_between(

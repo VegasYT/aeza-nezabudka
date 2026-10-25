@@ -30,6 +30,7 @@ class RecurringPayment(Base):
         CheckConstraint("period in ('day', 'week', 'month', 'year')", name="period_known"),
         CheckConstraint("period_count between 1 and 366", name="period_count_range"),
         CheckConstraint("occurrence_limit between 1 and 1000", name="occurrence_limit_range"),
+        CheckConstraint("reminder_days_before between 0 and 30", name="reminder_days_range"),
         CheckConstraint("anchor_day between 1 and 31", name="anchor_day_range"),
         CheckConstraint("schedule_from_seq >= 0", name="from_seq_non_negative"),
     )
@@ -43,6 +44,8 @@ class RecurringPayment(Base):
     period_count: Mapped[int] = mapped_column(SmallInteger, server_default="1")
     # сколько раз оплатить; None - бессрочно
     occurrence_limit: Mapped[int | None] = mapped_column(SmallInteger)
+    # за сколько дней до срока напоминать; None - общее окно системы
+    reminder_days_before: Mapped[int | None] = mapped_column(SmallInteger)
     anchor_day: Mapped[int] = mapped_column(SmallInteger)
     schedule_first_due_date: Mapped[date] = mapped_column(Date)
     schedule_from_seq: Mapped[int]
@@ -81,4 +84,25 @@ class PaymentOccurrence(Base):
     paid_by_login: Mapped[str | None] = mapped_column(String(255))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class OccurrenceReceipt(Base):
+    """Чек оплаты периода (ADR-017): файл в S3-хранилище, здесь - запись о нём. Один на период."""
+
+    __tablename__ = "occurrence_receipts"
+    __table_args__ = (CheckConstraint("size > 0", name="size_positive"),)
+
+    occurrence_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("payment_occurrences.id", ondelete="CASCADE"), primary_key=True
+    )
+    object_key: Mapped[str] = mapped_column(String(200), unique=True)
+    file_name: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int]
+    sha256: Mapped[str] = mapped_column(String(64))
+    uploaded_by_id: Mapped[uuid.UUID]
+    uploaded_by_login: Mapped[str] = mapped_column(String(255))
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )

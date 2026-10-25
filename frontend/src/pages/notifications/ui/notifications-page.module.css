@@ -112,6 +112,18 @@
 	font-weight: 600;
 }
 
+/* Окно напоминаний: поле и кнопки в ряд, кнопки вровень с полем; узко - кнопки ниже. */
+.windowForm {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var(--mantine-spacing-sm);
+}
+
+.windowField {
+	width: rem(200px);
+}
+
 /* Шаги подключения по ссылке */
 .flow {
 	display: flex;

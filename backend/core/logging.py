@@ -106,13 +106,16 @@ class RequestContextMiddleware:
         started = time.perf_counter()
         status = 500
         response_started = False
+        streaming = False
 
         async def send_with_id(message: Message) -> None:
-            nonlocal status, response_started
+            nonlocal status, response_started, streaming
             if message["type"] == "http.response.start":
                 status = message["status"]
                 response_started = True
-                MutableHeaders(scope=message)[REQUEST_ID_HEADER] = request_id
+                headers = MutableHeaders(scope=message)
+                headers[REQUEST_ID_HEADER] = request_id
+                streaming = headers.get("content-type", "").startswith("text/event-stream")
             await send(message)
 
         try:
@@ -125,7 +128,9 @@ class RequestContextMiddleware:
             path = _route_template(scope)
             duration = time.perf_counter() - started
             HTTP_REQUESTS.labels(scope["method"], path, str(status)).inc()
-            HTTP_DURATION.labels(scope["method"], path).observe(duration)
+            # поток SSE открыт часами: его длительность испортила бы p95 маршрутов
+            if not streaming:
+                HTTP_DURATION.labels(scope["method"], path).observe(duration)
             log.info(
                 "request",
                 method=scope["method"],

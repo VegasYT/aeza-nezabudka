@@ -105,7 +105,8 @@ export function recurringPaymentExample() {
         overdueCount: 1,
         paidOccurrences: 3,
         period: 'month',
-        periodCount: 1
+        periodCount: 1,
+        reminderDaysBefore: 7
     };
 }
 

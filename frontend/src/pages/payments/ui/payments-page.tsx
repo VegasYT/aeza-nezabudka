@@ -17,6 +17,7 @@ import {
 	periodSearch,
 	resolvePeriod,
 } from '../model/payments-search';
+import { useReceiptActions } from '../model/receipts';
 import { useOccurrenceActions } from '../model/use-occurrence-actions';
 import { BudgetScreen } from './budget-view';
 import { CalendarScreen } from './calendar-screen';
@@ -24,8 +25,10 @@ import { PaidDateDialog, type PaidDateMode } from './paid-date-dialog';
 import { PaymentDialog } from './payment-dialog';
 import { PaymentsToolbar, type ScreenView } from './payments-toolbar';
 import { ActionSheet, FiltersSheet } from './phone-payments';
+import { ReceiptDialog } from './receipt-dialog';
 import type { ScreenProps } from './screen-props';
 import { TableScreen } from './table-screen';
+import { UnmarkDialog } from './unmark-dialog';
 
 // Форма платежа тянет zod и TanStack Form, а нужна только администратору и по кнопке.
 const PaymentFormDialog = lazy(() =>
@@ -51,11 +54,18 @@ export function PaymentsPage() {
 	const budgetYear = search.year ?? currentYear;
 
 	const actions = useOccurrenceActions();
+	const receipts = useReceiptActions();
 	const [dateTarget, setDateTarget] = useState<{
 		occurrence: PaymentOccurrence;
 		mode: PaidDateMode;
 	} | null>(null);
 	const [sheetTarget, setSheetTarget] = useState<PaymentOccurrence | null>(
+		null
+	);
+	const [receiptTarget, setReceiptTarget] = useState<PaymentOccurrence | null>(
+		null
+	);
+	const [unmarkTarget, setUnmarkTarget] = useState<PaymentOccurrence | null>(
 		null
 	);
 	const [filtersOpen, setFiltersOpen] = useState(false);
@@ -88,8 +98,12 @@ export function PaymentsPage() {
 			void actions.markToday(occurrence),
 		onPickDate: (occurrence: PaymentOccurrence, mode: PaidDateMode) =>
 			setDateTarget({ occurrence, mode }),
+		// Отмена оплаты удаляет и чек, поэтому с чеком сначала подтверждение.
 		onUnmark: (occurrence: PaymentOccurrence) =>
-			void actions.unmark(occurrence),
+			occurrence.receipt
+				? setUnmarkTarget(occurrence)
+				: void actions.unmark(occurrence),
+		onReceipt: settings.receiptsEnabled ? setReceiptTarget : undefined,
 	};
 	const screen: ScreenProps = {
 		search,
@@ -168,6 +182,7 @@ export function PaymentsPage() {
 						onClose={() => setSheetTarget(null)}
 						onPickDate={handlers.onPickDate}
 						onUnmark={handlers.onUnmark}
+						onReceipt={handlers.onReceipt}
 					/>
 					<FiltersSheet
 						opened={filtersOpen}
@@ -189,6 +204,17 @@ export function PaymentsPage() {
 						? actions.correctDate(occurrence, paidOn)
 						: actions.markOn(occurrence, paidOn)
 				}
+				onAttach={settings.receiptsEnabled ? receipts.attach : undefined}
+			/>
+			<ReceiptDialog
+				occurrence={receiptTarget}
+				onChange={setReceiptTarget}
+				onClose={() => setReceiptTarget(null)}
+			/>
+			<UnmarkDialog
+				occurrence={unmarkTarget}
+				onClose={() => setUnmarkTarget(null)}
+				onConfirm={(occurrence) => void actions.unmark(occurrence)}
 			/>
 			{onAdd && formLoaded && (
 				<Suspense fallback={null}>

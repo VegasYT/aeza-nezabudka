@@ -5,26 +5,52 @@ import {
 	IconCalendarCheck,
 	IconCheck,
 	IconDots,
+	IconPaperclip,
 	IconPencil,
+	IconReceipt,
 	IconUndo,
 } from '@shared/ui/icons';
 
-import { occurrenceTitle } from '../model/wording';
+import { occurrenceTitle, receiptActionLabel } from '../model/wording';
 import classes from './payments-page.module.css';
 
-/** Что сделать с периодом: открыть окно даты или отменить оплату. */
+/** Что сделать с периодом: открыть окно даты, отменить оплату, открыть чек. */
 export interface OccurrenceHandlers {
 	onMark: (occurrence: PaymentOccurrence) => void;
 	onPickDate: (occurrence: PaymentOccurrence, mode: 'other' | 'fix') => void;
 	onUnmark: (occurrence: PaymentOccurrence) => void;
+	/** Окно чека; нет, если чеки на сервере выключены. */
+	onReceipt?: (occurrence: PaymentOccurrence) => void;
 }
 
-/** Меню действий с периодом: другие даты оплаты и отмена. */
+/** Кнопка чека в строке оплаченного периода с чеком: открывает окно чека. */
+export function ReceiptButton({
+	occurrence,
+	onReceipt,
+}: {
+	occurrence: PaymentOccurrence;
+	onReceipt: (occurrence: PaymentOccurrence) => void;
+}) {
+	return (
+		<ActionIcon
+			variant='subtle'
+			color='gray'
+			size='lg'
+			aria-label={`Чек: ${occurrenceTitle(occurrence)}`}
+			onClick={() => onReceipt(occurrence)}
+		>
+			<IconReceipt size={18} />
+		</ActionIcon>
+	);
+}
+
+/** Меню действий с периодом: другие даты оплаты, чек и отмена. */
 export function OccurrenceMenu({
 	occurrence,
 	disabled,
 	onPickDate,
 	onUnmark,
+	onReceipt,
 }: Omit<OccurrenceHandlers, 'onMark'> & {
 	occurrence: PaymentOccurrence;
 	disabled: boolean;
@@ -51,6 +77,20 @@ export function OccurrenceMenu({
 						>
 							Исправить дату
 						</Menu.Item>
+						{onReceipt && (
+							<Menu.Item
+								leftSection={
+									occurrence.receipt ? (
+										<IconReceipt size={20} />
+									) : (
+										<IconPaperclip size={20} />
+									)
+								}
+								onClick={() => onReceipt(occurrence)}
+							>
+								{receiptActionLabel(occurrence)}
+							</Menu.Item>
+						)}
 						<Menu.Item
 							color='var(--mantine-color-error)'
 							leftSection={<IconUndo size={20} />}

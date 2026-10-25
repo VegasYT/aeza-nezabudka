@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
+import { LiveUpdates } from './live-updates';
 import { ReauthHost } from './reauth-host';
 import { routeTree } from './routeTree.gen';
 import { SessionWatcher } from './session-watcher';
@@ -31,6 +32,7 @@ export function appRouterOptions(context: RouterContext) {
 				{children}
 				<ReauthHost />
 				<SessionWatcher />
+				<LiveUpdates />
 			</>
 		),
 	} as const;

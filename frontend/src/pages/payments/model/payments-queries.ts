@@ -169,5 +169,6 @@ export function invalidatePayments(queryClient: QueryClient) {
 		'listPaymentOccurrences',
 		'getPaymentsSummary',
 		'getRecurringPayment',
+		'getReceipt',
 	]);
 }

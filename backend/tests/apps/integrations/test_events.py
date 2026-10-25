@@ -46,6 +46,7 @@ async def test_payment_lifecycle_events(
         "period": "month",
         "periodCount": 1,
         "occurrenceLimit": None,
+        "reminderDaysBefore": None,
         "nextDueDate": "2026-11-05",
         "department": None,
         "stopped": False,

@@ -6,6 +6,7 @@ export {
 	getApiErrorCode,
 	getApiErrorMessage,
 	getApiFieldErrors,
+	getApiStatus,
 	getRetryAfterMinutes,
 } from './api-error';
 export { invalidateOperations } from './invalidate';

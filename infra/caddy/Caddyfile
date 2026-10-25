@@ -10,6 +10,10 @@
 
 	# только API и Swagger: /metrics, /healthz и /readyz процесса наружу не отдаются
 	handle /api/* {
+		# чек до 10 МБ с запасом на multipart; остальные запросы - небольшой JSON
+		request_body {
+			max_size 12MB
+		}
 		reverse_proxy api:8000
 	}
 	# видео и картинки из docs/assets, например /media/nezabudka-demo.mp4
@@ -34,6 +38,11 @@
 # pgAdmin закрыт своим входом (PGADMIN_EMAIL, PGADMIN_PASSWORD); PostgreSQL наружу не открыт.
 {$SCHEME}://pgadmin.{$DOMAIN} {
 	reverse_proxy pgadmin:80
+}
+
+# Панель хранилища чеков закрыта своим входом (GARAGE_WEBUI_AUTH); S3 и admin API наружу не открыты.
+{$SCHEME}://storage.{$DOMAIN} {
+	reverse_proxy garage-webui:3909
 }
 
 # Kafka UI только с профилем integration, закрыт своим входом (KAFKA_UI_PASSWORD), только чтение.

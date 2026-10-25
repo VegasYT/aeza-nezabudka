@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CompoundSelect, Select, delete, func, literal, or_, select, update
+from sqlalchemy import CompoundSelect, Select, case, delete, func, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,12 +90,26 @@ async def messages_to_close(
     return list(rows)
 
 
+async def sent_by_message(session: AsyncSession, message_id: str) -> list[Notification]:
+    """Отправленные напоминания с этим id сообщения Telegram; id уникален только в своём чате."""
+    return list(
+        await session.scalars(
+            select(Notification).where(
+                Notification.external_id == message_id, Notification.state == "sent"
+            )
+        )
+    )
+
+
 async def pending_stats(session: AsyncSession) -> tuple[int, datetime | None]:
+    # Без попыток отправки запись ждёт с назначенного времени: так отложенное кнопкой
+    # "Напомнить завтра" не выглядит застрявшим. После неудачи - с создания.
+    waiting_since = case(
+        (Notification.attempts == 0, Notification.next_attempt_at), else_=Notification.created_at
+    )
     row = (
         await session.execute(
-            select(func.count(), func.min(Notification.created_at)).where(
-                Notification.state == "pending"
-            )
+            select(func.count(), func.min(waiting_since)).where(Notification.state == "pending")
         )
     ).one()
     return int(row[0]), row[1]

@@ -6,6 +6,7 @@ from core.config import (
     ReminderSettings,
     SeedSettings,
     Settings,
+    StorageSettings,
 )
 
 ENV_EXAMPLE = Path(__file__).resolve().parent.parent / ".env.example"
@@ -25,6 +26,7 @@ def test_env_example_lists_every_setting() -> None:
             *SeedSettings.model_fields,
             *ReminderSettings.model_fields,
             *IntegrationSettings.model_fields,
+            *StorageSettings.model_fields,
         )
     }
 

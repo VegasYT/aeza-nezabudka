@@ -12,8 +12,11 @@ from apps.audit import repository
 from apps.audit.models import AuditRecord
 from apps.audit.schemas import AuditQuery
 from core.auth import Principal
+from core.live import LiveEvent, publish
 
 _SECRET_KEY = re.compile(r"password|secret|token", re.IGNORECASE)
+# изменения этих объектов видят все роли, остальные - администраторы (ADR-016)
+_PUBLIC_ENTITIES = frozenset({"payment", "occurrence", "department", "settings"})
 
 
 async def record(
@@ -26,17 +29,32 @@ async def record(
     entity_name: str | None = None,
     details: Mapping[str, Any] | None = None,
 ) -> None:
-    """Добавляет запись в текущую транзакцию сессии; секреты из `details` не сохраняются."""
+    """Добавляет запись в текущую транзакцию сессии и публикует событие для панели;
+    секреты из `details` не сохраняются."""
+    target = None if entity_id is None else str(entity_id)
     session.add(
         AuditRecord(
             actor_id=actor.id,
             actor_login=actor.login,
             action=action,
             entity=entity,
-            entity_id=None if entity_id is None else str(entity_id),
+            entity_id=target,
             entity_name=entity_name,
             details={k: v for k, v in (details or {}).items() if not _SECRET_KEY.search(k)},
         )
+    )
+    await publish(
+        session,
+        LiveEvent(
+            type=action,
+            audience="all" if entity in _PUBLIC_ENTITIES else "admins",
+            entity_type=entity,
+            entity_id=target,
+            entity_name=entity_name,
+            actor_login=actor.login,
+            # о смене роли или отключении узнаёт и сам участник
+            member_id=target if entity == "member" else None,
+        ),
     )
 
 

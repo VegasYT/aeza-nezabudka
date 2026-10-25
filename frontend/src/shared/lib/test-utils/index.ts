@@ -1,5 +1,6 @@
 export * from './api-mocks';
 export { apiServer } from './api-server';
+export { serveLiveEvents } from './live-mocks';
 export * from './notifications-mocks';
 export { renderWithQuery } from './render-with-query';
 export { renderWithTheme } from './render-with-theme';

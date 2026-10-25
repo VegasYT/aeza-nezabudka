@@ -70,6 +70,15 @@ class Notifier(Protocol):
 
 
 @dataclass(frozen=True)
+class IncomingFile:
+    """Документ или фото в сообщении; фото - в самом большом размере."""
+
+    file_id: str
+    name: str | None
+    size: int | None
+
+
+@dataclass(frozen=True)
 class IncomingMessage:
     update_id: int
     chat_id: int
@@ -89,6 +98,11 @@ class IncomingMessage:
     new_topic_name: str | None = None
     # супергруппа с темами
     forum: bool = False
+    # Telegram id отправителя; в личном чате совпадает с chat_id
+    from_id: int | None = None
+    # сообщение, на которое ответили, и приложенный файл: так прикладывают чек
+    reply_to: int | None = None
+    file: IncomingFile | None = None
 
 
 @dataclass(frozen=True)
@@ -117,6 +131,8 @@ class BotUpdates(Protocol):
     async def answer_callback(self, callback_id: str, text: str) -> None:
         """Всплывающий ответ на нажатие кнопки."""
         ...
+
+    async def download(self, file_id: str) -> bytes: ...
 
 
 class TelegramBot(Notifier, BotUpdates, Protocol):
@@ -168,7 +184,20 @@ def _incoming(update: Update) -> IncomingMessage | IncomingCallback:
         topic_name=_topic_name(message),
         new_topic_name=message.forum_topic_edited.name if message.forum_topic_edited else None,
         forum=bool(message.chat.is_forum),
+        from_id=None if sender is None else sender.id,
+        reply_to=None if message.reply_to_message is None else message.reply_to_message.message_id,
+        file=_file(message),
     )
+
+
+def _file(message: Message) -> IncomingFile | None:
+    if message.document is not None:
+        document = message.document
+        return IncomingFile(document.file_id, document.file_name, document.file_size)
+    if message.photo:
+        photo = message.photo[-1]
+        return IncomingFile(photo.file_id, None, photo.file_size)
+    return None
 
 
 def _topic_name(message: Message) -> str | None:
@@ -245,6 +274,13 @@ class TelegramNotifier:
             await self._bot.answer_callback_query(callback_id, text=text)
         except Exception as error:
             raise self._classify(error) from None
+
+    async def download(self, file_id: str) -> bytes:
+        try:
+            content = await self._bot.download(file_id)
+        except Exception as error:
+            raise self._classify(error) from None
+        return b"" if content is None else content.read()
 
     async def close(self) -> None:
         await self._bot.session.close()

@@ -1,6 +1,6 @@
 # Инфраструктура
 
-`compose.prod.yaml` - вся система на одном сервере: прокси Caddy с HTTPS, frontend, backend (`api`, `worker`, разовая `migrate`), PostgreSQL и наблюдаемость (Prometheus, Loki, Promtail, Grafana, ADR-009).
+`compose.prod.yaml` - вся система на одном сервере: прокси Caddy с HTTPS, frontend, backend (`api`, `worker`, разовая `migrate`), PostgreSQL, S3-хранилище чеков Garage (ADR-017) и наблюдаемость (Prometheus, Loki, Promtail, Grafana, ADR-009).
 
 ## Адреса
 
@@ -11,10 +11,11 @@
 | `https://nezabudka.space/api/v1/docs` | Swagger |
 | `https://www.nezabudka.space` | перенаправление на основной адрес |
 | `https://grafana.nezabudka.space` | Grafana, пользователь `admin`, пароль - `GRAFANA_ADMIN_PASSWORD` |
+| `https://storage.nezabudka.space` | панель хранилища чеков garage-webui: бакеты, ключи, просмотр файлов; вход - логин и пароль из `GARAGE_WEBUI_AUTH` (пароль стенда - в `/home/deploy/garage-webui-password` на сервере: `infra/` выкладка перезаписывает) |
 | `https://kafka.nezabudka.space` | Kafka UI (только с `COMPOSE_PROFILES=integration`), пользователь `admin`, пароль - `KAFKA_UI_PASSWORD`; только чтение |
 | `https://pgadmin.nezabudka.space` | pgAdmin, вход - `PGADMIN_EMAIL` и `PGADMIN_PASSWORD`; сервер `nezabudka` уже добавлен, пароль базы - `POSTGRES_PASSWORD` |
 
-Наружу открыты только 80 и 443. PostgreSQL, Prometheus, Loki, `/metrics`, `/healthz` и `/readyz` процессов из интернета недоступны.
+Наружу открыты только 80 и 443. PostgreSQL, Garage, Prometheus, Loki, `/metrics`, `/healthz` и `/readyz` процессов из интернета недоступны.
 
 ## Первая настройка сервера
 
@@ -36,9 +37,9 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf && sysctl -p /etc/sysctl.d/99-swappiness.conf
 ```
 
-От `deploy` в `/opt/nezabudka`: положить `infra/.env` по образцу `infra/.env.example` (пароли: `openssl rand -hex 24`). Остальной код приносит GitHub Actions.
+От `deploy` в `/opt/nezabudka`: положить `infra/.env` по образцу `infra/.env.example` (пароли: `openssl rand -hex 24`; ключ Garage: `echo GK$(openssl rand -hex 12)`, его секрет и `GARAGE_RPC_SECRET`: `openssl rand -hex 32`). Ключ доступа и бакет `receipts` Garage создаёт сам при первом запуске. Остальной код приносит GitHub Actions.
 
-DNS: записи A для `nezabudka.space`, `www.nezabudka.space`, `grafana.nezabudka.space`, `pgadmin.nezabudka.space` и `kafka.nezabudka.space` на адрес сервера. Без них Caddy не получит сертификаты.
+DNS: записи A для `nezabudka.space`, `www.nezabudka.space`, `grafana.nezabudka.space`, `pgadmin.nezabudka.space`, `storage.nezabudka.space` и `kafka.nezabudka.space` на адрес сервера. Без них Caddy не получит сертификаты.
 
 ## Выкладка
 
@@ -59,7 +60,7 @@ DNS: записи A для `nezabudka.space`, `www.nezabudka.space`, `grafana.ne
 
 ## Локальная работа над frontend
 
-`compose.dev.yaml` - PostgreSQL, миграции, тестовые данные и `api` на `http://localhost:8000` с входом без Aéza. Нужен только Docker:
+`compose.dev.yaml` - PostgreSQL, Garage для чеков, миграции, тестовые данные и `api` на `http://localhost:8000` с входом без Aéza. Нужен только Docker:
 
 ```bash
 docker compose -f infra/compose.dev.yaml up -d --build
@@ -94,4 +95,6 @@ docker compose -f infra/compose.prod.yaml logs -f api worker
 docker compose -f infra/compose.prod.yaml run --rm seed     # тестовые данные демо
 ```
 
-Данные PostgreSQL, Grafana, Prometheus и Loki лежат в именованных томах и переживают перезапуск и выкладку.
+Данные PostgreSQL, Garage, Grafana, Prometheus и Loki лежат в именованных томах и переживают перезапуск и выкладку. Чеки хранятся не в базе, а в томах Garage (`garage-meta`, `garage-data`): резервная копия базы их не включает, копировать нужно оба.
+
+Своё S3-хранилище заказчика вместо Garage: `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_REGION` и ключи в `infra/.env`; бакет создаётся заранее. Объекты без записи о чеке (после отмены оплаты или сбоя) `worker` удаляет раз в час, когда им больше суток.

@@ -1,11 +1,13 @@
 """Процесс api: FastAPI, проверки живости и готовности."""
 
 import asyncio
+import contextlib
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
+from typing import Annotated, Protocol
 
 import structlog
 import uvicorn
@@ -21,19 +23,20 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from starlette.types import ASGIApp
 
 from app.docs import DESCRIPTION, TAGS, TITLE, docs_router
+from app.events import router as events_router
 from apps.audit.router import router as audit_router
 from apps.departments.router import router as departments_router
 from apps.payments.router import router as payments_router
 from apps.reminders.router import chats_router as group_chats_router
 from apps.reminders.router import router as reminders_router
-from apps.reminders.service import enqueue
+from apps.reminders.service import ReminderWindow, enqueue, reminder_window
 from apps.reminders.telegram import BotUpdates, TelegramNotifier
 from apps.users.aeza import AezaApi, AezaClient
 from apps.users.dev_aeza import DevAeza
 from apps.users.router import public_router as auth_router
 from apps.users.router import router as users_router
 from apps.users.service import MemberAuthenticator, sync_admins
-from core.auth import Authenticator, current_principal
+from core.auth import ADMIN, Authenticator, Principal, current_principal, require_roles
 from core.clock import Clock, clock_from_settings
 from core.config import (
     ConfigError,
@@ -41,15 +44,19 @@ from core.config import (
     IntegrationSettings,
     ReminderSettings,
     Settings,
+    StorageSettings,
     load_identity_settings,
     load_integration_settings,
     load_reminder_settings,
     load_settings,
+    load_storage_settings,
 )
 from core.db import create_engine, create_session_factory
 from core.errors import error_response, install_error_handlers
+from core.live import LiveBroker
 from core.logging import RequestContextMiddleware, configure_logging
-from core.schemas import ApiModel, error_responses
+from core.schemas import ApiModel, InputModel, error_responses
+from core.storage import ObjectStorage, S3Storage
 
 log = structlog.get_logger(__name__)
 
@@ -75,6 +82,8 @@ def create_app(
     reminders: ReminderSettings | None = None,
     telegram_bot: BotUpdates | None = None,
     integrations: IntegrationSettings | None = None,
+    live: LiveBroker | None = None,
+    storage: ObjectStorage | None = None,
 ) -> FastAPI:
     """Собирает приложение; зависимости передают тесты, иначе они создаются по настройкам."""
     owns_engine = engine is None
@@ -97,6 +106,7 @@ def create_app(
     owned_bot = (
         None if telegram_bot is not None else TelegramNotifier.from_settings(reminder_settings)
     )
+    broker = live or LiveBroker(settings.database_url.get_secret_value())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -108,13 +118,11 @@ def create_app(
                 # База ещё не готова: api всё равно поднимается, синхронизация повторится.
                 log.warning("admin_sync_failed", exc_info=True)
                 retry = asyncio.create_task(_sync_admins_until_done(factory, identity))
-        yield
+        async with _listening(broker):
+            yield
         if retry is not None:
             retry.cancel()
-        if owned_aeza is not None:
-            await owned_aeza.close()
-        if owned_bot is not None:
-            await owned_bot.close()
+        await _close(owned_aeza, owned_bot, storage)
         if owns_engine:
             await db_engine.dispose()
 
@@ -145,6 +153,8 @@ def create_app(
     app.state.aeza = aeza_api
     app.state.session_ttl_hours = identity_settings.session_ttl_hours
     app.state.authenticator = authenticator or MemberAuthenticator(factory, app_clock, aeza_api)
+    app.state.live = broker
+    app.state.storage = storage
     install_error_handlers(app)
     app.include_router(_health_router(db_engine, migrations_head()))
     app.include_router(_api_router())
@@ -164,11 +174,33 @@ def _api_router() -> APIRouter:
         reminders_router,
         group_chats_router,
         audit_router,
+        events_router,
         _settings_router(),
     ):
         protected.include_router(module_router)
     router.include_router(protected)
     return router
+
+
+class _Closable(Protocol):
+    async def close(self) -> None: ...
+
+
+async def _close(*resources: _Closable | None) -> None:
+    for resource in resources:
+        if resource is not None:
+            await resource.close()
+
+
+@asynccontextmanager
+async def _listening(broker: LiveBroker) -> AsyncIterator[None]:
+    task = asyncio.create_task(broker.run())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 async def _sync_admins_until_done(
@@ -219,7 +251,25 @@ class SystemSettings(ApiModel):
     today: date = Field(description="Сегодня в часовом поясе системы: от него считаются сроки")
     timezone: str = Field(examples=["Europe/Moscow"])
     reminder_days_before: int = Field(
-        description="За сколько дней до срока приходит напоминание", examples=[3]
+        description="Общее окно напоминаний: за сколько дней до срока, если у платежа нет своего",
+        examples=[3],
+    )
+    receipts_enabled: bool = Field(
+        description="Чеки оплаты настроены: можно прикладывать к оплаченным периодам"
+    )
+    reminder_days_before_default: int = Field(
+        description="Окно из настроек сервера (`REMINDER_DAYS_BEFORE`): действует, пока окно "
+        "не задали в панели, к нему возвращает сброс",
+        examples=[3],
+    )
+
+
+class SystemSettingsUpdate(InputModel):
+    reminder_days_before: int | None = Field(
+        ge=0,
+        le=30,
+        description="null - вернуть окно из настроек сервера (`reminderDaysBeforeDefault`)",
+        examples=[5],
     )
 
 
@@ -233,15 +283,41 @@ def _settings_router() -> APIRouter:
         "Доступно всем ролям.",
         responses=error_responses(401),
     )
-    async def get_settings(request: Request) -> SystemSettings:
-        state = request.app.state
-        return SystemSettings(
-            today=state.clock.today(),
-            timezone=state.settings.tz,
-            reminder_days_before=state.reminder_settings.reminder_days_before,
-        )
+    async def get_settings(request: Request, window: Window) -> SystemSettings:
+        return _system_settings(request, window, await window.current())
+
+    @router.patch(
+        "/settings",
+        summary="Изменить настройки системы",
+        description="Общее окно напоминаний, 0-30 дней; у платежа может быть своё. Действует без "
+        "перезапуска, новые напоминания встают по нему в течение минуты. Окно из панели важнее "
+        "`REMINDER_DAYS_BEFORE`; `null` возвращает значение сервера. Только администратор.",
+        responses=error_responses(400, 401, 403),
+    )
+    async def update_settings(
+        request: Request,
+        body: SystemSettingsUpdate,
+        admin: Annotated[Principal, Depends(require_roles(ADMIN))],
+        window: Window,
+    ) -> SystemSettings:
+        days = await window.change(admin, body.reminder_days_before)
+        return _system_settings(request, window, days)
 
     return router
+
+
+Window = Annotated[ReminderWindow, Depends(reminder_window)]
+
+
+def _system_settings(request: Request, window: ReminderWindow, days: int) -> SystemSettings:
+    state = request.app.state
+    return SystemSettings(
+        today=state.clock.today(),
+        timezone=state.settings.tz,
+        reminder_days_before=days,
+        reminder_days_before_default=window.default,
+        receipts_enabled=state.storage is not None,
+    )
 
 
 def _not_ready(request: Request, code: str, message: str) -> JSONResponse:
@@ -260,6 +336,7 @@ def create_asgi_app(
     reminders: ReminderSettings | None = None,
     telegram_bot: BotUpdates | None = None,
     integrations: IntegrationSettings | None = None,
+    storage: ObjectStorage | None = None,
 ) -> ASGIApp:
     """Приложение с идентификатором запроса снаружи: он попадает и в ответы 500."""
     return RequestContextMiddleware(
@@ -274,17 +351,21 @@ def create_asgi_app(
             reminders=reminders,
             telegram_bot=telegram_bot,
             integrations=integrations,
+            storage=storage,
         )
     )
 
 
-def _settings_or_exit() -> tuple[Settings, IdentitySettings, ReminderSettings, IntegrationSettings]:
+def _settings_or_exit() -> tuple[
+    Settings, IdentitySettings, ReminderSettings, IntegrationSettings, StorageSettings
+]:
     try:
         return (
             load_settings(),
             load_identity_settings(),
             load_reminder_settings(),
             load_integration_settings(),
+            load_storage_settings(),
         )
     except ConfigError as error:
         print(error, file=sys.stderr)
@@ -293,19 +374,27 @@ def _settings_or_exit() -> tuple[Settings, IdentitySettings, ReminderSettings, I
 
 def app_from_env() -> ASGIApp:
     """Фабрика для `uvicorn --factory --reload` при разработке."""
-    settings, identity, reminders, integrations = _settings_or_exit()
+    settings, identity, reminders, integrations, storage = _settings_or_exit()
     configure_logging("api", settings.log_level)
     return create_asgi_app(
-        settings, identity=identity, reminders=reminders, integrations=integrations
+        settings,
+        identity=identity,
+        reminders=reminders,
+        integrations=integrations,
+        storage=S3Storage.from_settings(storage),
     )
 
 
 def main() -> None:
-    settings, identity, reminders, integrations = _settings_or_exit()
+    settings, identity, reminders, integrations, storage = _settings_or_exit()
     configure_logging("api", settings.log_level)
     uvicorn.run(
         create_asgi_app(
-            settings, identity=identity, reminders=reminders, integrations=integrations
+            settings,
+            identity=identity,
+            reminders=reminders,
+            integrations=integrations,
+            storage=S3Storage.from_settings(storage),
         ),
         host=settings.http_host,
         port=settings.http_port,

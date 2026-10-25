@@ -1,5 +1,5 @@
 @startuml "c4-container"
-title Invoice Keeper — C4, уровень контейнеров
+title Незабудка (Invoice Keeper) — C4, уровень контейнеров
 
 left to right direction
 skinparam shadowing false
@@ -25,16 +25,17 @@ actor "Администратор\n<<Person>>" as Admin
 actor "Оператор\n<<Person>>" as Operator
 
 rectangle "Aéza API\n<<External System>>\nВход, 2FA и проверка X-API-KEY" as Aeza #FFF7ED
-rectangle "Telegram Bot API\n<<External System>>\nГрупповые и личные сообщения" as Telegram #FFF7ED
+rectangle "Telegram Bot API\n<<External System>>\nСообщения, команды и файлы чеков" as Telegram #FFF7ED
 rectangle "Система заказчика\n<<External System>>\nREST API и приём webhook" as Customer #FFF7ED
 rectangle "Kafka заказчика\n<<External System>>\nБрокер интеграционных событий" as CustomerKafka #FFF7ED
 
-package "Invoice Keeper · on-premise, один сервер\n<<System Boundary>>" as InvoiceKeeper {
+package "Незабудка · on-premise, один сервер\n<<System Boundary>>" as InvoiceKeeper {
     rectangle "Caddy\n<<Container>>\nReverse proxy, HTTPS" as Caddy
-    rectangle "Веб-панель\n<<Container>>\nReact · Vite · TypeScript · Mantine" as Frontend
-    rectangle "API\n<<Container>>\nFastAPI · Python\nREST /api/v1, Swagger, роли и бизнес-операции" as Api
-    rectangle "Worker\n<<Container>>\nPython\nПериоды, напоминания, Telegram и outbox" as Worker
+    rectangle "Веб-панель\n<<Container>>\nReact · Vite · TypeScript · Mantine\nПлатежи, календарь, бюджет и настройки" as Frontend
+    rectangle "API\n<<Container>>\nFastAPI · Python\nREST /api/v1, Swagger, SSE, роли и бизнес-операции" as Api
+    rectangle "Worker\n<<Container>>\nPython\nПериоды, напоминания, Telegram, интеграции и очистка" as Worker
     database "PostgreSQL\n<<Container>>\nПлатежи, периоды, участники, сессии,\noutbox и журнал действий" as Postgres
+    database "Garage\n<<Container>>\nS3-совместимое хранилище\nфайлов чеков" as Garage
 
     package "Наблюдаемость" {
         rectangle "Prometheus\n<<Container>>\nМетрики" as Prometheus
@@ -43,27 +44,38 @@ package "Invoice Keeper · on-premise, один сервер\n<<System Boundary>
         rectangle "Grafana\n<<Container>>\nДашборды и поиск логов" as Grafana
     }
 
-    rectangle "Kafka demo\n<<Optional Container>>\nПрофиль integration" as DemoKafka #F1F5F9
+    package "Служебные интерфейсы" {
+        rectangle "pgAdmin\n<<Container>>\nАдминистрирование PostgreSQL" as PgAdmin
+        rectangle "Kafka UI\n<<Optional Container>>\nПросмотр топиков, только чтение" as KafkaUi #F1F5F9
+    }
+
+    rectangle "Kafka demo\n<<Optional Container>>\nБрокер профиля integration" as DemoKafka #F1F5F9
 }
 
 User --> Caddy : работает с платежами\nHTTPS
 Admin --> Caddy : управляет системой\nHTTPS
-Operator --> Caddy : смотрит Grafana и\nслужебные интерфейсы\nHTTPS
+Operator --> Caddy : смотрит Grafana, pgAdmin\nи Kafka UI\nHTTPS
 
 Caddy --> Frontend : отдаёт SPA\nHTTP
-Caddy --> Api : маршрутизирует /api\nHTTP
+Caddy --> Api : маршрутизирует /api\nHTTP, JSON, multipart, SSE
 Caddy --> Grafana : маршрутизирует\ngrafana.<домен>\nHTTP
-Frontend --> Api : вызывает REST API\nJSON/HTTPS через Caddy
+Caddy --> PgAdmin : маршрутизирует\npgadmin.<домен>\nHTTP
+Caddy --> KafkaUi : маршрутизирует\nkafka.<домен>\nHTTP, профиль integration
+Frontend --> Api : вызывает REST API и\nслушает события SSE\nHTTPS через Caddy
 
 Api --> Aeza : проверяет логин, 2FA\nи X-API-KEY\nHTTPS/JSON
 Api --> Postgres : читает и изменяет данные\nSQL
+Api --> Garage : сохраняет и отдаёт\nфайлы чеков\nS3 API
 Worker --> Postgres : читает задания и\nфиксирует результат\nSQL, transactional outbox
+Worker --> Garage : сохраняет чеки из Telegram\nи удаляет потерянные объекты\nS3 API
 
-Worker --> Telegram : отправляет сообщения\nи получает команды\nHTTPS
+Worker --> Telegram : отправляет сообщения, получает\nкоманды и скачивает чеки\nHTTPS
 Customer --> Caddy : вызывает REST API\nX-API-KEY, Idempotency-Key
 Worker --> Customer : доставляет события\nWebhook, HMAC-SHA256
 Worker --> CustomerKafka : публикует события\nKafka
 Worker --> DemoKafka : публикует события\nтолько в demo-профиле
+KafkaUi --> DemoKafka : читает топики и сообщения\nKafka, только чтение
+PgAdmin --> Postgres : администрирует базу\nPostgreSQL protocol
 
 Prometheus --> Api : собирает /metrics\nHTTP
 Prometheus --> Worker : собирает /metrics\nHTTP

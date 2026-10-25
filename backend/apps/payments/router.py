@@ -1,11 +1,14 @@
 from datetime import date, datetime
 from typing import Annotated
+from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+from fastapi import APIRouter, Depends, File, Header, Query, Request, Response, UploadFile, status
 
 from apps.departments.schemas import DepartmentRef
-from apps.payments.domain import CurrencyTotals, overdue_days
+from apps.payments.domain import RECEIPT_MAX_BYTES, CurrencyTotals, overdue_days
+from apps.payments.models import OccurrenceReceipt
+from apps.payments.receipts import ReceiptsService, receipts_of, receipts_service
 from apps.payments.repository import OccurrenceRow, PaymentRow, PlannedRow
 from apps.payments.schemas import (
     CurrencyTotals as CurrencyTotalsSchema,
@@ -19,6 +22,7 @@ from apps.payments.schemas import (
     PaymentRef,
     PaymentsSummary,
     PlannedOccurrence,
+    Receipt,
     RecurringPayment,
     RecurringPaymentCreate,
     RecurringPaymentQuery,
@@ -36,6 +40,7 @@ router = APIRouter()
 Writer = Annotated[Principal, Depends(require_roles(ADMIN_AND_INTEGRATION))]
 Anyone = Annotated[Principal, Depends(current_principal)]
 Service = Annotated[PaymentsService, Depends(payments_service)]
+Receipts = Annotated[ReceiptsService, Depends(receipts_service)]
 
 
 def _department(department_id: UUID | None, name: str | None) -> DepartmentRef | None:
@@ -54,6 +59,7 @@ def _payment(row: PaymentRow) -> RecurringPayment:
         period=payment.period,
         period_count=payment.period_count,
         occurrence_limit=payment.occurrence_limit,
+        reminder_days_before=payment.reminder_days_before,
         paid_occurrences=row.paid_occurrences,
         completed=row.completed,
         anchor_day=payment.anchor_day,
@@ -67,15 +73,33 @@ def _payment(row: PaymentRow) -> RecurringPayment:
     )
 
 
+def _receipt(receipt: OccurrenceReceipt | None) -> Receipt | None:
+    if receipt is None:
+        return None
+    return Receipt(
+        file_name=receipt.file_name,
+        content_type=receipt.content_type,
+        size=receipt.size,
+        uploaded_at=receipt.uploaded_at,
+        uploaded_by_login=receipt.uploaded_by_login,
+    )
+
+
 def _occurrence(
-    row: OccurrenceRow, today: date, sent_at: dict[UUID, datetime]
+    row: OccurrenceRow,
+    today: date,
+    sent_at: dict[UUID, datetime],
+    receipts: dict[UUID, OccurrenceReceipt],
 ) -> PaymentOccurrence:
     occurrence = row.occurrence
     days = overdue_days(occurrence.due_date, occurrence.paid_on, today)
     return PaymentOccurrence(
         id=occurrence.id,
         recurring_payment=PaymentRef(
-            id=occurrence.recurring_payment_id, name=row.payment_name, stopped=row.payment_stopped
+            id=occurrence.recurring_payment_id,
+            name=row.payment_name,
+            stopped=row.payment_stopped,
+            reminder_days_before=row.reminder_days_before,
         ),
         department=_department(row.department_id, row.department_name),
         due_date=occurrence.due_date,
@@ -87,18 +111,26 @@ def _occurrence(
         overdue=days > 0,
         days_overdue=days,
         reminder_sent_at=sent_at.get(occurrence.id),
+        receipt=_receipt(receipts.get(occurrence.id)),
     )
 
 
 async def _occurrences(request: Request, rows: list[OccurrenceRow]) -> list[PaymentOccurrence]:
     state = request.app.state
-    sent_at = await reminders_sent_at(state.session_factory, [row.occurrence.id for row in rows])
-    return [_occurrence(row, state.clock.today(), sent_at) for row in rows]
+    ids = [row.occurrence.id for row in rows]
+    sent_at = await reminders_sent_at(state.session_factory, ids)
+    receipts = await receipts_of(state.session_factory, ids)
+    return [_occurrence(row, state.clock.today(), sent_at, receipts) for row in rows]
 
 
 def _planned(row: PlannedRow) -> PlannedOccurrence:
     return PlannedOccurrence(
-        recurring_payment=PaymentRef(id=row.payment_id, name=row.payment_name, stopped=False),
+        recurring_payment=PaymentRef(
+            id=row.payment_id,
+            name=row.payment_name,
+            stopped=False,
+            reminder_days_before=row.reminder_days_before,
+        ),
         department=_department(row.department_id, row.department_name),
         due_date=row.due_date,
         amount_minor=row.amount_minor,
@@ -259,7 +291,7 @@ async def get_payment_occurrence(
     summary="Отметить, исправить или отменить оплату",
     description=(
         "paid=true отмечает оплату или исправляет фактическую дату, paid=false отменяет "
-        "отметку и очищает дату. Срок периода не меняется."
+        "отметку, очищает дату и удаляет чек. Срок периода не меняется."
     ),
     responses=error_responses(400, 401, 404),
 )
@@ -272,6 +304,83 @@ async def update_payment_occurrence(
 ) -> PaymentOccurrence:
     row = await service.update_occurrence(principal, occurrence_id, body)
     return (await _occurrences(request, [row]))[0]
+
+
+_RECEIPT_ERRORS = error_responses(400, 401, 404, 409, 503)
+
+
+@router.put(
+    "/payment-occurrences/{occurrence_id}/receipt",
+    tags=["Периоды оплаты"],
+    summary="Приложить чек оплаты",
+    description=(
+        "Файл в поле `file` (multipart): PDF, JPEG, PNG или WebP до 10 МБ, тип определяется "
+        "по содержимому. Только к оплаченному периоду (иначе 409 `occurrence_not_paid`); "
+        "новый чек заменяет прежний. Без хранилища - 409 `receipts_disabled`, хранилище "
+        "недоступно - 503 `storage_unavailable`. Все роли."
+    ),
+    responses=_RECEIPT_ERRORS,
+)
+async def attach_receipt(
+    *,
+    principal: Anyone,
+    receipts: Receipts,
+    service: Service,
+    request: Request,
+    occurrence_id: UUID,
+    file: Annotated[UploadFile, File(description="Чек: PDF, JPEG, PNG или WebP до 10 МБ")],
+) -> PaymentOccurrence:
+    # на байт больше предела: так видно, что файл слишком большой, без чтения целиком
+    data = await file.read(RECEIPT_MAX_BYTES + 1)
+    await receipts.attach(principal, occurrence_id, file.filename, data)
+    row = await service.get_occurrence(occurrence_id)
+    return (await _occurrences(request, [row]))[0]
+
+
+@router.get(
+    "/payment-occurrences/{occurrence_id}/receipt",
+    tags=["Периоды оплаты"],
+    summary="Файл чека оплаты",
+    description="Отдаёт файл с его типом и именем; без чека - 404. Все роли.",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "Файл чека",
+            "content": {
+                media: {"schema": {"type": "string", "format": "binary"}}
+                for media in ("application/pdf", "image/jpeg", "image/png", "image/webp")
+            },
+        },
+        **_RECEIPT_ERRORS,
+    },
+)
+async def get_receipt(_: Anyone, receipts: Receipts, occurrence_id: UUID) -> Response:
+    found = await receipts.read(occurrence_id)
+    name = found.receipt.file_name
+    ascii_name = name.encode("ascii", "replace").decode().replace('"', "_").replace("?", "_")
+    return Response(
+        found.data,
+        media_type=found.receipt.content_type,
+        headers={
+            "Content-Disposition": (
+                f"inline; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"
+            ),
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.delete(
+    "/payment-occurrences/{occurrence_id}/receipt",
+    tags=["Периоды оплаты"],
+    summary="Удалить чек оплаты",
+    description="Без чека - 404. Все роли.",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(400, 401, 404, 409),
+)
+async def delete_receipt(principal: Anyone, receipts: Receipts, occurrence_id: UUID) -> None:
+    await receipts.delete(principal, occurrence_id)
 
 
 @router.get(

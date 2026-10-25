@@ -16,9 +16,15 @@ export const CURRENCY_NAMES: Record<Currency, string> = {
 	EUR: 'EUR, евро',
 };
 
-/** Ближайший срок платежа: дата (или `null` - прочерк), подпись и выделение окна напоминания. */
+/**
+ * Ближайший срок платежа: дата (или `null` - прочерк), подпись и выделение окна напоминания:
+ * своего окна платежа, а без него общего `reminderDaysBefore`.
+ */
 export function nextDueView(
-	payment: Pick<RecurringPayment, 'nextDueDate' | 'stoppedAt' | 'completed'>,
+	payment: Pick<
+		RecurringPayment,
+		'nextDueDate' | 'stoppedAt' | 'completed' | 'reminderDaysBefore'
+	>,
 	today: CalendarDate,
 	reminderDaysBefore: number
 ) {
@@ -41,7 +47,11 @@ export function nextDueView(
 	return {
 		date: formatDate(payment.nextDueDate),
 		note: dueDistance(today, payment.nextDueDate),
-		soon: inReminderWindow(today, payment.nextDueDate, reminderDaysBefore),
+		soon: inReminderWindow(
+			today,
+			payment.nextDueDate,
+			payment.reminderDaysBefore ?? reminderDaysBefore
+		),
 	};
 }
 

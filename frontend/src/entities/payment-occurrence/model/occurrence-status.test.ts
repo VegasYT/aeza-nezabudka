@@ -59,6 +59,28 @@ describe('статус периода', () => {
 			},
 		],
 	] as const)('%s', (_, occurrence, expected) => {
-		expect(occurrenceStatus(occurrence, today, window)).toEqual(expected);
+		expect(
+			occurrenceStatus(
+				{ ...occurrence, recurringPayment: { reminderDaysBefore: null } },
+				today,
+				window
+			)
+		).toEqual(expected);
+	});
+
+	// Срок 27.10.2026 через 3 дня: решает своё окно платежа, а не общее.
+	it.each([
+		['своё окно шире общего', 7, 1, 'soon'],
+		['своё окно уже общего', 1, 3, 'waiting'],
+	] as const)('%s', (_, own, common, tone) => {
+		const occurrence = {
+			dueDate: '2026-10-27',
+			paid: false,
+			overdue: false,
+			daysOverdue: 0,
+			recurringPayment: { reminderDaysBefore: own },
+		};
+
+		expect(occurrenceStatus(occurrence, today, common).tone).toBe(tone);
 	});
 });

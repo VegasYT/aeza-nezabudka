@@ -17,6 +17,7 @@ import {
 	MarkButton,
 	OccurrenceMenu,
 	type OccurrenceHandlers,
+	ReceiptButton,
 } from './occurrence-actions';
 import classes from './payments-page.module.css';
 
@@ -231,11 +232,18 @@ export function OccurrencesTable({
 												onMark={handlers.onMark}
 											/>
 										)}
+										{occurrence.receipt && handlers.onReceipt && (
+											<ReceiptButton
+												occurrence={occurrence}
+												onReceipt={handlers.onReceipt}
+											/>
+										)}
 										<OccurrenceMenu
 											occurrence={occurrence}
 											disabled={saving}
 											onPickDate={handlers.onPickDate}
 											onUnmark={handlers.onUnmark}
+											onReceipt={handlers.onReceipt}
 										/>
 									</div>
 								</td>

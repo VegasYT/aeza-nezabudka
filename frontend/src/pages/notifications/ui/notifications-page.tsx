@@ -11,6 +11,7 @@ import { GroupChats } from './group-chats';
 import classes from './notifications-page.module.css';
 import { PersonalTelegram } from './personal-telegram';
 import { RemindersAside } from './reminders-aside';
+import { ReminderWindow } from './reminder-window';
 
 /** Раздел «Уведомления»: личный Telegram, сведения о чатах и образцы, у администратора - группы. */
 export function NotificationsPage() {
@@ -31,10 +32,13 @@ export function NotificationsPage() {
 						phone={phone}
 					/>
 					{user?.role === 'admin' && (
-						<GroupChats
-							botConfigured={status?.botConfigured !== false}
-							phone={phone}
-						/>
+						<>
+							<GroupChats
+								botConfigured={status?.botConfigured !== false}
+								phone={phone}
+							/>
+							<ReminderWindow settings={settings} phone={phone} />
+						</>
 					)}
 				</div>
 				{status && (

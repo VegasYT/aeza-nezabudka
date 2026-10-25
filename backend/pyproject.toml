@@ -3,6 +3,7 @@ name = "invoice-keeper-backend"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "aiobotocore>=3.10.0",
     "aiogram>=3.28",
     "aiohttp-socks>=0.10",
     "aiokafka>=0.14.0",
@@ -13,6 +14,7 @@ dependencies = [
     "prometheus-client>=0.26.0",
     "pydantic>=2.13",
     "pydantic-settings>=2.16.1",
+    "python-multipart>=0.0.32",
     "pyyaml>=6.0.3",
     "sqlalchemy[asyncio]>=2.1.6",
     "structlog>=26.1.0",
@@ -32,6 +34,7 @@ dev = [
     "pytest-xdist>=3.6",
     "ruff>=0.17.2",
     "testcontainers[postgres]>=4.15.0",
+    "types-aiobotocore[s3]>=3.10.0",
     "types-pyyaml>=6.0.12.20260906",
 ]
 
@@ -57,8 +60,8 @@ plugins = ["pydantic.mypy"]
 exclude = ["migrations/versions/"]
 
 [[tool.mypy.overrides]]
-# У aiokafka нет аннотаций типов.
-module = ["aiokafka", "aiokafka.*"]
+# У aiokafka и asyncpg нет аннотаций типов.
+module = ["aiokafka", "aiokafka.*", "asyncpg", "asyncpg.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

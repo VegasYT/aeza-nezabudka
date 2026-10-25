@@ -15,6 +15,7 @@ import {
 	nextDueView,
 	PaymentBadges,
 	paymentProgress,
+	reminderTiming,
 	scheduleLabel,
 } from '@entities/recurring-payment';
 import {
@@ -133,6 +134,21 @@ function paymentFacts(
 					sub: due.note,
 					soon: due.soon,
 				},
+		// У прекращённого и завершённого платежа напоминаний больше не будет.
+		...(payment.stoppedAt || payment.completed
+			? []
+			: [
+					{
+						label: 'Напоминание',
+						value: capitalize(
+							reminderTiming(payment.reminderDaysBefore ?? reminderDaysBefore)
+						),
+						sub:
+							payment.reminderDaysBefore === null
+								? 'как у\u00a0всех платежей'
+								: 'своё у\u00a0платежа',
+					},
+				]),
 		{ label: 'Отдел', value: payment.department?.name ?? 'Без отдела' },
 		{
 			label: 'Добавлен',

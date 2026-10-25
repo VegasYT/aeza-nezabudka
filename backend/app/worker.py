@@ -23,14 +23,18 @@ from starlette.routing import Route
 from apps.integrations.publishers import EventPublisher, build_publishers
 from apps.integrations.service import EventDeliverer, cleanup
 from apps.integrations.service import pending_stats as delivery_stats
+from apps.payments.receipts import ReceiptsService
 from apps.payments.schemas import PaymentOccurrenceUpdate
 from apps.payments.service import PaymentsService, record_time_events
 from apps.reminders.service import (
+    AttachReceipt,
+    MarkPaid,
     ReminderSender,
     ReminderUpdater,
     TelegramLinks,
     UpdatesPoller,
     enqueue,
+    reminder_days,
 )
 from apps.reminders.service import pending_stats as reminder_stats
 from apps.reminders.telegram import TelegramBot, TelegramNotifier
@@ -42,9 +46,11 @@ from core.config import (
     IntegrationSettings,
     ReminderSettings,
     Settings,
+    StorageSettings,
     load_integration_settings,
     load_reminder_settings,
     load_settings,
+    load_storage_settings,
 )
 from core.db import create_engine, create_session_factory
 from core.logging import configure_logging
@@ -56,6 +62,7 @@ from core.metrics import (
     OUTBOX_PENDING,
     PERIODS_CREATED,
 )
+from core.storage import ObjectStorage, S3Storage
 
 log = structlog.get_logger(__name__)
 
@@ -139,18 +146,17 @@ async def tick(
     payments = PaymentsService(session_factory, clock)
     periods = await payments.ensure_periods()
     PERIODS_CREATED.inc(periods)
-    await payments.report_open(reminders.reminder_days_before)
     today = clock.today()
     now = clock.now()
     async with session_factory() as session, session.begin():
+        days_before = await reminder_days(session, reminders)
         queued = await enqueue(session, today, reminders)
-        events = await record_time_events(
-            session, today, reminders.reminder_days_before, event_targets, now
-        )
+        events = await record_time_events(session, today, days_before, event_targets, now)
         stats = {
             "notifications": await reminder_stats(session),
             "integration_deliveries": await delivery_stats(session),
         }
+    await payments.report_open(days_before)
     for queue, (pending, oldest) in stats.items():
         OUTBOX_PENDING.labels(queue).set(pending)
         OUTBOX_OLDEST_AGE.labels(queue).set(
@@ -159,15 +165,41 @@ async def tick(
     log.info("tick_done", periods_created=periods, reminders_queued=queued, events=events)
 
 
+def telegram_actions(
+    payments: PaymentsService, receipts: ReceiptsService
+) -> tuple[MarkPaid, AttachReceipt]:
+    """Отметка кнопкой "Оплачено" и чек ответом боту идут тем же путём, что из панели:
+    журнал, напоминания и события."""
+
+    async def mark_paid(actor: Principal, occurrence_id: UUID) -> None:
+        await payments.update_occurrence(
+            actor, occurrence_id, PaymentOccurrenceUpdate(paid=True), source="telegram"
+        )
+
+    async def attach_receipt(
+        actor: Principal, occurrence_id: UUID, file_name: str | None, data: bytes
+    ) -> None:
+        # чек ответом на напоминание заодно отмечает оплату, как кнопка "Оплачено"
+        row = await payments.get_occurrence(occurrence_id)
+        if row.occurrence.paid_on is None:
+            await mark_paid(actor, occurrence_id)
+        await receipts.attach(actor, occurrence_id, file_name, data, source="telegram")
+
+    return mark_paid, attach_receipt
+
+
 def build_jobs(
     engine: AsyncEngine,
     clock: Clock,
     reminders: ReminderSettings,
     bot: TelegramBot | None,
     publishers: Mapping[str, EventPublisher] | None = None,
+    *,
+    storage: ObjectStorage | None = None,
 ) -> list[PeriodicJob]:
     session_factory = create_session_factory(engine)
     targets = tuple(publishers or {})
+    receipts = ReceiptsService(session_factory, clock, storage)
     jobs = [
         PeriodicJob(
             "scheduler",
@@ -183,6 +215,8 @@ def build_jobs(
             "auth_cleanup", CLEANUP_INTERVAL_SECONDS, lambda: auth_cleanup(session_factory, clock)
         ),
     ]
+    if storage is not None:
+        jobs.append(PeriodicJob("receipts_cleanup", CLEANUP_INTERVAL_SECONDS, receipts.cleanup))
     if publishers:
         deliverer = EventDeliverer(session_factory, clock, publishers)
         jobs.append(
@@ -195,7 +229,6 @@ def build_jobs(
         return jobs
     sender = ReminderSender(session_factory, clock, bot, reminders)
     updater = ReminderUpdater(session_factory, clock, bot, reminders)
-    # отметка кнопкой "Оплачено" идёт тем же путём, что из панели: напоминания и события
     payments = PaymentsService(
         session_factory,
         clock,
@@ -205,12 +238,15 @@ def build_jobs(
         event_targets=targets,
     )
 
-    async def mark_paid(actor: Principal, occurrence_id: UUID) -> None:
-        await payments.update_occurrence(
-            actor, occurrence_id, PaymentOccurrenceUpdate(paid=True), source="telegram"
-        )
-
-    links = TelegramLinks(session_factory, clock, reminders, bot, mark_paid=mark_paid)
+    mark_paid, attach_receipt = telegram_actions(payments, receipts)
+    links = TelegramLinks(
+        session_factory,
+        clock,
+        reminders,
+        bot,
+        mark_paid=mark_paid,
+        attach_receipt=None if storage is None else attach_receipt,
+    )
     poller = UpdatesPoller(engine, links, bot, bot)
     jobs.append(PeriodicJob("reminder_sender", SENDER_INTERVAL_SECONDS, sender.send_due))
     jobs.append(PeriodicJob("reminder_updates", SENDER_INTERVAL_SECONDS, updater.run_once))
@@ -251,19 +287,24 @@ async def _serve_http(settings: Settings, stop: asyncio.Event) -> None:
 
 
 async def _run(
-    settings: Settings, reminders: ReminderSettings, integrations: IntegrationSettings
+    settings: Settings,
+    reminders: ReminderSettings,
+    integrations: IntegrationSettings,
+    storage_settings: StorageSettings,
 ) -> None:
     stop = asyncio.Event()
     _install_stop_signals(stop)
     http = asyncio.create_task(_serve_http(settings, stop))
     engine = create_engine(settings)
     notifier = TelegramNotifier.from_settings(reminders)
+    storage = S3Storage.from_settings(storage_settings)
     jobs = build_jobs(
         engine,
         clock_from_settings(settings),
         reminders,
         notifier,
         build_publishers(integrations),
+        storage=storage,
     )
     log.info("worker_started", jobs=[job.name for job in jobs])
     try:
@@ -273,6 +314,8 @@ async def _run(
         await http
         if notifier is not None:
             await notifier.close()
+        if storage is not None:
+            await storage.close()
         await engine.dispose()
     log.info("worker_stopped")
 
@@ -282,11 +325,12 @@ def main() -> None:
         settings = load_settings()
         reminders = load_reminder_settings()
         integrations = load_integration_settings()
+        storage = load_storage_settings()
     except ConfigError as error:
         print(error, file=sys.stderr)
         raise SystemExit(1) from None
     configure_logging("worker", settings.log_level)
-    asyncio.run(_run(settings, reminders, integrations))
+    asyncio.run(_run(settings, reminders, integrations, storage))
 
 
 if __name__ == "__main__":

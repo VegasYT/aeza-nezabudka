@@ -18,6 +18,7 @@ import {
 	handleStopRecurringPayment,
 	handleUpdateRecurringPayment,
 	serveRecurringScreen,
+	serveSettings,
 	signIn,
 	stubMatchMedia,
 } from '@shared/lib/test-utils';
@@ -40,6 +41,7 @@ function payment(overrides: Partial<RecurringPayment>): RecurringPayment {
 		period: 'month',
 		periodCount: 1,
 		occurrenceLimit: null,
+		reminderDaysBefore: null,
 		paidOccurrences: 0,
 		completed: false,
 		anchorDay: 19,
@@ -366,6 +368,17 @@ describe('карточка платежа', () => {
 		).toBeInTheDocument();
 	});
 
+	it('строка «Напоминание»: своё окно платежа или общее', async () => {
+		Object.assign(byId('p-rent'), { reminderDaysBefore: 7 });
+
+		renderApp('/recurring-payments/p-rent');
+
+		const facts = await screen.findByRole('region', { name: 'О платеже' });
+
+		expect(facts).toHaveTextContent(/Напоминание\s*За 7 дней до срока/);
+		expect(within(facts).getByText('своё у платежа')).toBeInTheDocument();
+	});
+
 	it('у платежа с созданными по ограничению периодами не обещает следующий', async () => {
 		Object.assign(byId('p-rent'), { occurrenceLimit: 3, paidOccurrences: 1 });
 
@@ -511,6 +524,7 @@ describe('создание платежа', () => {
 				period: 'month',
 				periodCount: 1,
 				occurrenceLimit: null,
+				reminderDaysBefore: null,
 				departmentId: 'd-it',
 			},
 		]);
@@ -875,6 +889,54 @@ describe('изменение платежа', () => {
 		await user.click(save);
 
 		await waitFor(() => expect(bodies).toEqual([{ occurrenceLimit: null }]));
+	});
+
+	it('окно напоминаний: больше 30 поле исправляет, пустое возвращает общее', async () => {
+		Object.assign(byId('p-rent'), { reminderDaysBefore: 7 });
+		// Общее окно приходит с сервера: из настроек панели или REMINDER_DAYS_BEFORE.
+		serveSettings({ reminderDaysBefore: 5 });
+
+		const bodies: RecurringPaymentUpdate[] = [];
+
+		apiServer.use(
+			handleUpdateRecurringPayment(async ({ request }) => {
+				bodies.push((await request.json()) as RecurringPaymentUpdate);
+
+				return HttpResponse.json(byId('p-rent'));
+			})
+		);
+
+		const user = userEvent.setup();
+
+		renderApp('/recurring-payments');
+
+		await user.click(
+			await screen.findByRole('button', { name: 'Изменить: Аренда офиса' })
+		);
+
+		const dialog = await screen.findByRole('dialog', {
+			name: 'Изменить платёж',
+		});
+		const field = within(dialog).getByLabelText('Напоминать за, дней');
+		const save = within(dialog).getByRole('button', { name: 'Сохранить' });
+
+		expect(field).toHaveValue('7');
+
+		await user.clear(field);
+		await user.type(field, '45');
+		await user.tab();
+
+		expect(field).toHaveValue('30');
+
+		await user.clear(field);
+
+		expect(
+			within(dialog).getByText('Пусто: как у всех платежей, за 5 дней до срока')
+		).toBeInTheDocument();
+
+		await user.click(save);
+
+		await waitFor(() => expect(bodies).toEqual([{ reminderDaysBefore: null }]));
 	});
 
 	it('у якоря 31 называет ближайший короткий месяц', async () => {

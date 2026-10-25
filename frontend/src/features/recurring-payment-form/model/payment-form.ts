@@ -1,4 +1,8 @@
-import { periodLabel } from '@entities/recurring-payment';
+import {
+	isReminderWindow,
+	periodLabel,
+	REMINDER_MAX,
+} from '@entities/recurring-payment';
 import {
 	getApiErrorCode,
 	getApiErrorMessage,
@@ -86,6 +90,13 @@ const schema = z.object({
 			(value) => value === '' || inRange(value, LIMIT_MAX),
 			`Число от\u00a01 до\u00a0${LIMIT_MAX} или пусто`
 		),
+	// Пустое поле - общее окно напоминаний.
+	reminderDaysBefore: z
+		.union([z.number(), z.string()])
+		.refine(
+			(value) => value === '' || isReminderWindow(value),
+			`Число от\u00a00 до\u00a0${REMINDER_MAX} или пусто`
+		),
 	departmentId: z.string(),
 });
 
@@ -116,6 +127,7 @@ export function initialValues(payment: RecurringPayment | null): FormValues {
 		period: payment?.period ?? 'month',
 		periodCount: payment?.periodCount ?? 1,
 		occurrenceLimit: payment?.occurrenceLimit ?? '',
+		reminderDaysBefore: payment?.reminderDaysBefore ?? '',
 		departmentId: payment?.department?.id ?? NO_DEPARTMENT,
 	};
 }
@@ -127,7 +139,7 @@ export function amountMinorOf(text: string) {
 	return 'amountMinor' in parsed ? parsed.amountMinor : null;
 }
 
-/** Тело `POST`: значения формы в виде API. Пустое число оплат - `null`, бессрочно. */
+/** Тело `POST`: значения формы в виде API. Пустое число оплат - `null`, бессрочно; пустое окно - `null`, общее. */
 export function createBody(values: FormValues): RecurringPaymentCreate {
 	return {
 		name: values.name.trim(),
@@ -138,6 +150,10 @@ export function createBody(values: FormValues): RecurringPaymentCreate {
 		periodCount: Number(values.periodCount),
 		occurrenceLimit:
 			values.occurrenceLimit === '' ? null : Number(values.occurrenceLimit),
+		reminderDaysBefore:
+			values.reminderDaysBefore === ''
+				? null
+				: Number(values.reminderDaysBefore),
 		departmentId:
 			values.departmentId === NO_DEPARTMENT ? null : values.departmentId,
 	};
@@ -181,6 +197,10 @@ export function changedFields(
 
 	if (next.occurrenceLimit !== payment.occurrenceLimit) {
 		changes.occurrenceLimit = next.occurrenceLimit;
+	}
+
+	if (next.reminderDaysBefore !== payment.reminderDaysBefore) {
+		changes.reminderDaysBefore = next.reminderDaysBefore;
 	}
 
 	if (next.departmentId !== (payment.department?.id ?? null)) {

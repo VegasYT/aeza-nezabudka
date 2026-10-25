@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from tests.app.test_contract import ID, OPERATIONS, PUBLIC
+from tests.app.test_contract import ID, OPERATIONS, PUBLIC, STREAMS, UPLOADS
 from tests.auth_helpers import make_token
 
 USER_TOKEN = make_token(roles=("user",), login="buh.petrova")
@@ -10,6 +10,7 @@ INTEGRATION_TOKEN = make_token(roles=("integration", "user"), login="service-acc
 # Операции, которые каждой роли запрещены (authorization spec, матрица design).
 FORBIDDEN = {
     "user": {
+        "update_settings",
         "list_users",
         "create_user",
         "update_user",
@@ -28,6 +29,7 @@ FORBIDDEN = {
         "list_audit_log",
     },
     "integration": {
+        "update_settings",
         "list_users",
         "create_user",
         "update_user",
@@ -52,6 +54,9 @@ TOKENS = {"user": USER_TOKEN, "integration": INTEGRATION_TOKEN}
 async def _call(client: httpx.AsyncClient, name: str, token: str | None) -> httpx.Response:
     method, path, body = OPERATIONS[name]
     headers = {"Authorization": f"Bearer {token}"} if token else {}
+    if name in UPLOADS:
+        files = {"file": ("receipt.pdf", b"%PDF-1.7", "application/pdf")}
+        return await client.request(method, path, files=files, headers=headers)
     return await client.request(method, path, json=body, headers=headers)
 
 
@@ -66,7 +71,7 @@ async def test_operation_requires_token(offline_client: httpx.AsyncClient, name:
 
 @pytest.mark.parametrize(
     ("role", "name"),
-    [(role, name) for role in TOKENS for name in sorted(set(OPERATIONS) - PUBLIC)],
+    [(role, name) for role in TOKENS for name in sorted(set(OPERATIONS) - PUBLIC - STREAMS)],
 )
 async def test_role_matrix(offline_client: httpx.AsyncClient, role: str, name: str) -> None:
     response = await _call(offline_client, name, TOKENS[role])

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { StatusMark } from '@entities/payment-occurrence';
 import type { PaymentOccurrence, PlannedOccurrence } from '@shared/api';
 import { type CalendarDate, formatDate } from '@shared/lib/dates';
-import { formatDays } from '@shared/lib/plural';
 
 import {
 	type CalendarEntry,
@@ -166,22 +165,18 @@ export function CalendarView({
 
 /** Обозначения календаря и число периодов, из них по расписанию. */
 export function CalendarLegend({
-	reminderDaysBefore,
 	total,
 	planned,
 	phrase,
 }: {
-	reminderDaysBefore: number;
 	total: number;
 	planned: number;
 	phrase: string;
 }) {
 	const items = [
 		{ mark: <StatusMark tone='paid' />, label: 'Оплачено' },
-		{
-			mark: <StatusMark tone='soon' />,
-			label: `Срок в\u00a0ближайшие ${formatDays(reminderDaysBefore)}`,
-		},
+		// У платежей своё окно напоминания, поэтому без числа дней.
+		{ mark: <StatusMark tone='soon' />, label: 'Скоро срок' },
 		{ mark: <StatusMark tone='waiting' />, label: 'Не оплачено' },
 		{ mark: <StatusMark tone='overdue' />, label: 'Просрочено' },
 		{

@@ -123,7 +123,7 @@ function ResumeContent({
 			<ReminderAlert
 				today={today}
 				date={mode === 'date' ? date : ''}
-				reminderDaysBefore={reminderDaysBefore}
+				reminderDaysBefore={payment.reminderDaysBefore ?? reminderDaysBefore}
 				after='возобновления'
 			/>
 			<DialogText quiet>

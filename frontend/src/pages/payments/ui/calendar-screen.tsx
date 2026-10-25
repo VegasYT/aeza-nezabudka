@@ -98,7 +98,6 @@ export function CalendarScreen({
 					<>
 						<CalendarView {...calendarProps} />
 						<CalendarLegend
-							reminderDaysBefore={reminderDaysBefore}
 							total={calendar.occurrences.length + calendar.planned.length}
 							planned={calendar.planned.length}
 							phrase={gridPhrase}

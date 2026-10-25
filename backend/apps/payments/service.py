@@ -90,6 +90,7 @@ def _snapshot(row: PaymentRow) -> dict[str, Any]:
         "period": payment.period,
         "period_count": payment.period_count,
         "occurrence_limit": payment.occurrence_limit,
+        "reminder_days_before": payment.reminder_days_before,
         "department_id": None if payment.department_id is None else str(payment.department_id),
         "department_name": row.department_name,
     }
@@ -112,6 +113,7 @@ def _payment_data(row: PaymentRow) -> dict[str, Any]:
         "period": payment.period,
         "periodCount": payment.period_count,
         "occurrenceLimit": payment.occurrence_limit,
+        "reminderDaysBefore": payment.reminder_days_before,
         "nextDueDate": None if row.next_due_date is None else row.next_due_date.isoformat(),
         "department": _department_data(payment.department_id, row.department_name),
         "stopped": payment.stopped_at is not None,
@@ -142,14 +144,17 @@ def _occurrence_data(row: OccurrenceRow, actor_login: str | None) -> dict[str, A
 async def record_time_events(
     session: AsyncSession, today: date, days_before: int, targets: Sequence[str], now: datetime
 ) -> int:
-    """События `occurrence.due_soon` и `occurrence.overdue`: по одному на период."""
+    """События `occurrence.due_soon` и `occurrence.overdue`: по одному на период.
+
+    `days_before` - общее окно напоминания; у платежа может быть своё.
+    """
     windows = (
-        (EventType.OCCURRENCE_DUE_SOON, today, today + timedelta(days=days_before)),
-        (EventType.OCCURRENCE_OVERDUE, None, today - timedelta(days=1)),
+        (EventType.OCCURRENCE_DUE_SOON, today, None, days_before),
+        (EventType.OCCURRENCE_OVERDUE, None, today - timedelta(days=1), None),
     )
     recorded = 0
-    for event_type, due_from, due_to in windows:
-        rows = await repository.open_occurrences(session, due_from, due_to)
+    for event_type, due_from, due_to, window_days in windows:
+        rows = await repository.open_occurrences(session, due_from, due_to, window_days=window_days)
         keys = {row.occurrence.id: dedup_key(event_type, row.occurrence.id) for row in rows}
         done = await recorded_dedup_keys(session, list(keys.values()))
         for row in rows:
@@ -191,6 +196,8 @@ class OccurrenceSubject:
     payment_id: UUID
     paid_on: date | None
     paid_by_login: str | None
+    # своё окно напоминания платежа; None - общее
+    reminder_days_before: int | None
 
 
 def settled_occurrence_ids() -> Select[UUID]:
@@ -204,10 +211,14 @@ def open_occurrence_departments(
     payment_ids: Sequence[UUID] | None = None,
     *,
     first_only: bool = False,
+    window_days: int | None = None,
 ) -> Select[UUID, UUID | None]:
-    """Запрос неоплаченных периодов действующих платежей с отделом; выполняет вызывающий модуль."""
+    """Запрос неоплаченных периодов действующих платежей с отделом; выполняет вызывающий модуль.
+
+    `window_days` - общее окно напоминания: срок не позже `due_from` плюс окно платежа.
+    """
     return repository.open_occurrence_departments(
-        due_from, due_to, payment_ids, first_only=first_only
+        due_from, due_to, payment_ids, first_only=first_only, window_days=window_days
     )
 
 
@@ -227,6 +238,7 @@ async def occurrence_subjects(
             row.occurrence.recurring_payment_id,
             row.occurrence.paid_on,
             row.occurrence.paid_by_login,
+            row.reminder_days_before,
         )
         for row in await repository.get_occurrences(session, ids)
     }
@@ -343,6 +355,7 @@ class PaymentsService:
                 period=data.period.value,
                 period_count=data.period_count,
                 occurrence_limit=data.occurrence_limit,
+                reminder_days_before=data.reminder_days_before,
                 department_id=data.department_id,
                 anchor_day=data.next_due_date.day,
                 schedule_first_due_date=data.next_due_date,
@@ -433,6 +446,8 @@ class PaymentsService:
                 await _apply_limit(session, payment, data.occurrence_limit, today)
             if "department_id" in changed:
                 payment.department_id = data.department_id
+            if "reminder_days_before" in changed:
+                payment.reminder_days_before = data.reminder_days_before
             await session.flush()
             await repository.ensure_periods(session, today, [payment_id])
             await self._changed(session, today, payment_id)
@@ -542,6 +557,8 @@ class PaymentsService:
                 occurrence.paid_on = None
                 occurrence.paid_by_id = None
                 occurrence.paid_by_login = None
+                # чек без оплаты вводит в заблуждение
+                await repository.delete_receipt(session, occurrence_id)
             await record(
                 session,
                 actor,
@@ -611,9 +628,7 @@ class PaymentsService:
         """Метрики для дашборда: действующие платежи, просрочка и ближайшие оплаты."""
         today = self._clock.today()
         async with self._session_factory() as session:
-            active, rows = await repository.open_snapshot(
-                session, today, today + timedelta(days=days_before)
-            )
+            active, rows = await repository.open_snapshot(session, today, days_before)
         PAYMENTS_ACTIVE.set(active)
         found = {(state, currency): (count, amount) for state, currency, count, amount in rows}
         for state in ("overdue", "due_soon"):

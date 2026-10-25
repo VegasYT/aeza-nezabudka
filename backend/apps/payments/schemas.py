@@ -58,6 +58,15 @@ OccurrenceLimit = Annotated[
         examples=[4],
     ),
 ]
+ReminderDays = Annotated[
+    int,
+    Field(
+        ge=0,
+        le=30,
+        description="За сколько дней до срока напоминать; null - общее окно (`GET /settings`)",
+        examples=[7],
+    ),
+]
 PeriodCount = Annotated[
     int,
     Field(
@@ -98,6 +107,7 @@ class RecurringPayment(ApiModel):
                     "period": "month",
                     "periodCount": 1,
                     "occurrenceLimit": None,
+                    "reminderDaysBefore": 7,
                     "paidOccurrences": 3,
                     "completed": False,
                     "anchorDay": 5,
@@ -120,6 +130,7 @@ class RecurringPayment(ApiModel):
     period: Period = Field(description="Единица повторения: day, week, month или year")
     period_count: PeriodCount
     occurrence_limit: OccurrenceLimit | None
+    reminder_days_before: ReminderDays | None
     paid_occurrences: int = Field(ge=0, description="Сколько периодов уже оплачено", examples=[3])
     completed: bool = Field(
         description="Все оплаты по occurrenceLimit сделаны; у бессрочного всегда false",
@@ -172,6 +183,7 @@ class RecurringPaymentCreate(InputModel):
     period: Period = Period.MONTH
     period_count: PeriodCount = 1
     occurrence_limit: OccurrenceLimit | None = None
+    reminder_days_before: ReminderDays | None = None
     next_due_date: date = Field(description="Дата ближайшей оплаты, не раньше сегодня")
     department_id: UUID | None = None
 
@@ -193,6 +205,9 @@ class RecurringPaymentUpdate(InputModel):
         default=None,
         description="Сколько раз оплатить всего; null - снять ограничение. Не меньше, чем "
         "уже оплаченных и просроченных периодов",
+    )
+    reminder_days_before: ReminderDays | None = Field(
+        default=None, description="Своё окно напоминания; null - общее окно системы"
     )
     next_due_date: date | None = Field(
         default=None, description="Новая дата ближайшей оплаты, не раньше сегодня"
@@ -226,6 +241,20 @@ class PaymentRef(ApiModel):
     id: UUID = Field(examples=[PAYMENT_ID_EXAMPLE])
     name: str = Field(examples=["Аренда офиса"])
     stopped: bool = Field(description="Платёж прекращён", examples=[False])
+    reminder_days_before: ReminderDays | None = None
+
+
+class Receipt(ApiModel):
+    """Чек оплаты периода; сам файл - `GET /payment-occurrences/{id}/receipt`."""
+
+    file_name: str = Field(examples=["receipt.pdf"])
+    content_type: str = Field(
+        description="application/pdf, image/jpeg, image/png или image/webp",
+        examples=["application/pdf"],
+    )
+    size: int = Field(gt=0, description="Байт", examples=[184320])
+    uploaded_at: datetime
+    uploaded_by_login: str = Field(examples=["buh.petrova"])
 
 
 class PaymentOccurrence(ApiModel):
@@ -238,6 +267,7 @@ class PaymentOccurrence(ApiModel):
                         "id": PAYMENT_ID_EXAMPLE,
                         "name": "Аренда офиса",
                         "stopped": False,
+                        "reminderDaysBefore": None,
                     },
                     "department": _DEPARTMENT_EXAMPLE,
                     "dueDate": "2026-10-05",
@@ -267,6 +297,7 @@ class PaymentOccurrence(ApiModel):
     reminder_sent_at: datetime | None = Field(
         default=None, description="Когда ушло последнее напоминание о периоде"
     )
+    receipt: Receipt | None = Field(default=None, description="Чек оплаты; null - не приложен")
 
 
 class PaymentOccurrenceUpdate(InputModel):

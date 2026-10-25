@@ -9,6 +9,7 @@ import {
 	nextDueAfter,
 	nextDuesHint,
 	periodLabel,
+	reminderTiming,
 	scheduleLabel,
 	shortMonthDue,
 } from './schedule';
@@ -193,5 +194,16 @@ describe('расписание регулярного платежа', () => {
 		['2026-11-19', `через 26${nbsp}дней`],
 	])('срок %s - %s', (due, expected) => {
 		expect(dueDistance('2026-10-24', due)).toBe(expected);
+	});
+});
+
+describe('окно напоминания', () => {
+	it.each([
+		[3, 'за 3 дня до срока'],
+		[1, 'за 1 день до срока'],
+		[5, 'за 5 дней до срока'],
+		[0, 'в день срока'],
+	])('%i - «%s»', (days, expected) => {
+		expect(reminderTiming(days).replaceAll(nbsp, ' ')).toBe(expected);
 	});
 });

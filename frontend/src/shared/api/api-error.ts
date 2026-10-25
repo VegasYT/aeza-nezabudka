@@ -38,6 +38,11 @@ export function getApiErrorCode(error: unknown): string | null {
 	return getApiError(error)?.error ?? null;
 }
 
+/** HTTP-статус ответа с ошибкой или `null`, если сервер не ответил: нужен, когда тело не в формате API (413 от прокси). */
+export function getApiStatus(error: unknown): number | null {
+	return isAxiosError(error) ? (error.response?.status ?? null) : null;
+}
+
 /** Тексты ошибок полей из ответа `400 bad_request`: `{ email: 'Неверный формат' }`; для других ошибок пустой объект. */
 export function getApiFieldErrors(error: unknown): Record<string, string> {
 	const payload = getApiError(error)?.payload;

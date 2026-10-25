@@ -206,6 +206,27 @@ export function dueDistance(today: CalendarDate, due: CalendarDate) {
 	return days === 1 ? 'завтра' : `через ${formatDays(days)}`;
 }
 
+/** Наибольшее окно напоминаний в днях: у платежа и общее. */
+export const REMINDER_MAX = 30;
+
+/** Окно напоминаний: целое от 0 до `REMINDER_MAX`; 0 - в день срока. */
+// Не сужает тип: схема Zod формы тогда сменила бы тип её значений.
+export function isReminderWindow(value: unknown) {
+	return (
+		typeof value === 'number' &&
+		Number.isInteger(value) &&
+		value >= 0 &&
+		value <= REMINDER_MAX
+	);
+}
+
+/** Когда приходит напоминание до срока: «за 3 дня до срока», при окне 0 - «в день срока». */
+export function reminderTiming(daysBefore: number) {
+	return daysBefore > 0
+		? `за\u00a0${formatDays(daysBefore)} до\u00a0срока`
+		: 'в\u00a0день срока';
+}
+
 /** Срок попадает в окно напоминания: напоминание уйдёт сразу после сохранения. */
 export function inReminderWindow(
 	today: CalendarDate,
