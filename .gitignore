@@ -1,0 +1,5 @@
+.vscode
+# worktree Claude Code
+.claude/worktrees/
+# локальные секреты во всех частях репо
+.env

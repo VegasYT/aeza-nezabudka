@@ -1,0 +1,21 @@
+.formGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: rem(14px) rem(12px);
+
+	@mixin smaller-than $mantine-breakpoint-xs {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.wide {
+	grid-column: 1 / -1;
+}
+
+.count {
+	width: rem(120px);
+}
+
+.unit {
+	flex: 1;
+}

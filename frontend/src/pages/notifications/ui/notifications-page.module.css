@@ -1,0 +1,416 @@
+/* Две колонки, как на макете: слева Telegram и группы, справа сведения о чатах; узко - друг под другом. */
+.columns {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--island-gap);
+}
+
+.primary {
+	display: flex;
+	flex: 3 1 rem(560px);
+	flex-direction: column;
+	gap: var(--island-gap);
+	min-width: 0;
+}
+
+.secondary {
+	display: flex;
+	flex: 2 1 rem(340px);
+	flex-direction: column;
+	gap: var(--island-gap);
+	min-width: 0;
+}
+
+.island {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--mantine-spacing-md);
+	min-width: 0;
+}
+
+.islandHead {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: rem(8px) var(--mantine-spacing-md);
+}
+
+.islandTitle {
+	font-size: rem(18px);
+	font-weight: 900;
+	line-height: 1.2;
+	text-transform: uppercase;
+}
+
+.status {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(7px);
+
+	& svg {
+		flex: none;
+	}
+}
+
+.statusStrong {
+	font-weight: 600;
+}
+
+.statusQuiet {
+	color: var(--nz-ink-2);
+	font-weight: 500;
+}
+
+.statusAlarm {
+	color: var(--nz-status-overdue-ink);
+	font-weight: 700;
+}
+
+.lead {
+	max-width: rem(620px);
+	line-height: 1.5;
+}
+
+.notice {
+	align-self: stretch;
+	max-width: rem(620px);
+}
+
+.account,
+.scope {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(10px) var(--mantine-spacing-md);
+	align-self: stretch;
+	box-sizing: border-box;
+	max-width: rem(620px);
+}
+
+.account {
+	padding: rem(12px) rem(12px) rem(12px) rem(16px);
+	border-radius: rem(12px);
+	background-color: var(--nz-inset);
+}
+
+.scope {
+	padding-top: rem(14px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.accountText {
+	display: flex;
+	flex-direction: column;
+	gap: rem(3px);
+	min-width: 0;
+}
+
+.switchLabel {
+	font-weight: 600;
+}
+
+/* Шаги подключения по ссылке */
+.flow {
+	display: flex;
+	flex-direction: column;
+	gap: var(--mantine-spacing-md);
+	align-self: stretch;
+}
+
+.flowBody {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: rem(20px) rem(32px);
+}
+
+.steps {
+	display: flex;
+	flex: 1 1 rem(280px);
+	flex-direction: column;
+	gap: var(--mantine-spacing-md);
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.step {
+	display: flex;
+	align-items: flex-start;
+	gap: rem(12px);
+}
+
+.stepNumber {
+	flex: none;
+	width: rem(26px);
+	height: rem(26px);
+	border-radius: rem(8px);
+	background-color: var(--nz-inset);
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(13px);
+	font-weight: 800;
+	line-height: rem(26px);
+	text-align: center;
+}
+
+.stepText {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: rem(6px);
+	padding-top: rem(3px);
+}
+
+.flowFooter {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: rem(4px) rem(8px);
+	padding-top: rem(12px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.accentAction {
+	color: var(--nz-accent-ink);
+}
+
+.flowExpiry {
+	margin-right: auto;
+}
+
+.time {
+	color: var(--nz-ink-2);
+	font-variant-numeric: tabular-nums;
+}
+
+/* QR-код светлый в обеих схемах: так его читает любая камера. */
+.qr {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	align-items: center;
+	gap: rem(10px);
+	box-sizing: border-box;
+	width: rem(172px);
+	margin: 0;
+	padding: rem(14px) rem(14px) rem(12px);
+	border-radius: rem(12px);
+	background-color: var(--nz-inset);
+}
+
+.qrCode {
+	display: block;
+	width: rem(140px);
+	height: rem(140px);
+	border-radius: rem(6px);
+	shape-rendering: crispedges;
+}
+
+.qrLight {
+	fill: var(--mantine-color-white);
+}
+
+.qrDark {
+	fill: var(--mantine-color-black);
+}
+
+.qrCaption {
+	color: var(--nz-ink-3);
+	font-size: var(--mantine-font-size-xs);
+	line-height: 1.4;
+	text-align: center;
+}
+
+.scopeList {
+	display: flex;
+	flex-direction: column;
+	gap: rem(12px);
+	padding-left: rem(32px);
+}
+
+/* Групповые чаты */
+.groups {
+	display: flex;
+	flex-direction: column;
+	gap: rem(14px);
+	min-width: 0;
+}
+
+.groupsHead {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(10px) var(--mantine-spacing-md);
+}
+
+.groupsHeading {
+	display: flex;
+	flex: 1 1 rem(280px);
+	flex-direction: column;
+	gap: rem(6px);
+	min-width: 0;
+	max-width: rem(620px);
+}
+
+.groupFlow {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: rem(14px);
+	padding: var(--mantine-spacing-md);
+	border-radius: rem(12px);
+	box-shadow: inset 0 0 0 1px var(--nz-line-strong);
+}
+
+.tableBox {
+	margin: 0 rem(-8px);
+	overflow-x: auto;
+}
+
+.table {
+	--table-border-color: var(--nz-line);
+
+	font-size: var(--mantine-font-size-md);
+
+	& th {
+		color: var(--nz-ink-3);
+		font-size: var(--mantine-font-size-xs);
+		font-weight: 600;
+	}
+
+	& td {
+		vertical-align: top;
+	}
+}
+
+.chatColumn {
+	width: 34%;
+}
+
+.chatTitle {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: rem(6px);
+}
+
+.chatName {
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.chatBlocked {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(6px);
+	color: var(--nz-status-overdue-ink);
+	font-size: var(--mantine-font-size-sm);
+	font-weight: 700;
+}
+
+.reconnect {
+	margin-left: rem(-8px);
+}
+
+.chatScope {
+	color: var(--nz-ink-2);
+}
+
+.chatDate {
+	color: var(--nz-ink-2);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.cards {
+	margin: 0 rem(-4px);
+	padding: 0;
+	list-style: none;
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	gap: rem(10px);
+	padding: rem(12px) rem(4px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.loadError {
+	display: flex;
+	align-items: flex-start;
+	gap: rem(12px);
+}
+
+.empty {
+	padding-top: rem(12px);
+	border-top: 1px solid var(--nz-line);
+	color: var(--nz-ink-2);
+}
+
+/* Образцы напоминаний */
+.sample {
+	display: flex;
+	flex-direction: column;
+	gap: rem(6px);
+	align-self: stretch;
+	margin: 0;
+}
+
+.sampleCaption {
+	color: var(--nz-ink-3);
+	font-size: var(--mantine-font-size-xs);
+	font-variant-numeric: tabular-nums;
+}
+
+.sampleText {
+	margin: 0;
+	padding: rem(10px) rem(12px);
+	border-radius: rem(4px) rem(12px) rem(12px);
+	background-color: var(--nz-inset);
+	font-variant-numeric: tabular-nums;
+	line-height: 1.45;
+}
+
+.linkOption {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: rem(6px);
+	min-width: 0;
+}
+
+.addBot {
+	flex: 1 1 rem(280px);
+}
+
+.byCommand {
+	padding-top: rem(14px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.command {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: rem(8px) rem(12px);
+	max-width: 100%;
+}
+
+/* Команду копируют целиком: шрифт интерфейса, без переносов внутри кода. */
+.commandText {
+	padding: rem(6px) rem(10px);
+	border-radius: rem(8px);
+	background-color: var(--nz-inset);
+	color: var(--nz-ink);
+	font-family: inherit;
+	font-size: var(--mantine-font-size-sm);
+	font-weight: 600;
+	overflow-wrap: anywhere;
+	user-select: all;
+}

@@ -1,0 +1,9 @@
+.text {
+	color: var(--nz-ink-2);
+	line-height: 1.5;
+}
+
+.subject {
+	line-height: 1.45;
+	overflow-wrap: anywhere;
+}

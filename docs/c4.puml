@@ -1,0 +1,85 @@
+@startuml "c4-container"
+title Invoice Keeper — C4, уровень контейнеров
+
+left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+skinparam ArrowColor #64748B
+skinparam actorBorderColor #1D4ED8
+skinparam actorBackgroundColor #DBEAFE
+skinparam actorFontColor #172554
+skinparam rectangleBorderColor #475569
+skinparam rectangleBackgroundColor #F8FAFC
+skinparam rectangleFontColor #0F172A
+skinparam databaseBorderColor #7C3AED
+skinparam databaseBackgroundColor #EDE9FE
+skinparam databaseFontColor #2E1065
+skinparam packageBorderColor #2563EB
+skinparam packageBackgroundColor #EFF6FF
+skinparam packageFontColor #172554
+
+actor "Сотрудник компании\n<<Person>>" as User
+actor "Администратор\n<<Person>>" as Admin
+actor "Оператор\n<<Person>>" as Operator
+
+rectangle "Aéza API\n<<External System>>\nВход, 2FA и проверка X-API-KEY" as Aeza #FFF7ED
+rectangle "Telegram Bot API\n<<External System>>\nГрупповые и личные сообщения" as Telegram #FFF7ED
+rectangle "Система заказчика\n<<External System>>\nREST API и приём webhook" as Customer #FFF7ED
+rectangle "Kafka заказчика\n<<External System>>\nБрокер интеграционных событий" as CustomerKafka #FFF7ED
+
+package "Invoice Keeper · on-premise, один сервер\n<<System Boundary>>" as InvoiceKeeper {
+    rectangle "Caddy\n<<Container>>\nReverse proxy, HTTPS" as Caddy
+    rectangle "Веб-панель\n<<Container>>\nReact · Vite · TypeScript · Mantine" as Frontend
+    rectangle "API\n<<Container>>\nFastAPI · Python\nREST /api/v1, Swagger, роли и бизнес-операции" as Api
+    rectangle "Worker\n<<Container>>\nPython\nПериоды, напоминания, Telegram и outbox" as Worker
+    database "PostgreSQL\n<<Container>>\nПлатежи, периоды, участники, сессии,\noutbox и журнал действий" as Postgres
+
+    package "Наблюдаемость" {
+        rectangle "Prometheus\n<<Container>>\nМетрики" as Prometheus
+        rectangle "Promtail\n<<Container>>\nСбор JSON-логов" as Promtail
+        database "Loki\n<<Container>>\nХранилище логов" as Loki
+        rectangle "Grafana\n<<Container>>\nДашборды и поиск логов" as Grafana
+    }
+
+    rectangle "Kafka demo\n<<Optional Container>>\nПрофиль integration" as DemoKafka #F1F5F9
+}
+
+User --> Caddy : работает с платежами\nHTTPS
+Admin --> Caddy : управляет системой\nHTTPS
+Operator --> Caddy : смотрит Grafana и\nслужебные интерфейсы\nHTTPS
+
+Caddy --> Frontend : отдаёт SPA\nHTTP
+Caddy --> Api : маршрутизирует /api\nHTTP
+Caddy --> Grafana : маршрутизирует\ngrafana.<домен>\nHTTP
+Frontend --> Api : вызывает REST API\nJSON/HTTPS через Caddy
+
+Api --> Aeza : проверяет логин, 2FA\nи X-API-KEY\nHTTPS/JSON
+Api --> Postgres : читает и изменяет данные\nSQL
+Worker --> Postgres : читает задания и\nфиксирует результат\nSQL, transactional outbox
+
+Worker --> Telegram : отправляет сообщения\nи получает команды\nHTTPS
+Customer --> Caddy : вызывает REST API\nX-API-KEY, Idempotency-Key
+Worker --> Customer : доставляет события\nWebhook, HMAC-SHA256
+Worker --> CustomerKafka : публикует события\nKafka
+Worker --> DemoKafka : публикует события\nтолько в demo-профиле
+
+Prometheus --> Api : собирает /metrics\nHTTP
+Prometheus --> Worker : собирает /metrics\nHTTP
+Promtail --> Caddy : читает Docker logs
+Promtail --> Api : читает Docker logs
+Promtail --> Worker : читает Docker logs
+Promtail --> Loki : отправляет логи\nHTTP
+Grafana --> Prometheus : запрашивает метрики\nPromQL
+Grafana --> Loki : запрашивает логи\nLogQL
+
+legend right
+  |= Элемент |= Смысл |
+  | <<Person>> | Человек, работающий с системой |
+  | <<External System>> | Система вне Invoice Keeper |
+  | <<Container>> | Долгоживущий контейнер решения |
+  | <<Optional Container>> | Необязательный demo-профиль |
+endlegend
+
+@enduml

@@ -1,0 +1,3 @@
+# Файлы из .gitignore, которые Claude Code копирует в новый worktree
+backend/.env
+frontend/.env

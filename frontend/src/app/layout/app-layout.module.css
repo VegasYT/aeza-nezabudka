@@ -1,0 +1,136 @@
+/* Холст: зазор между островами 6 px, на телефоне 4 px. */
+.layout {
+	--island-gap: rem(6px);
+
+	display: flex;
+	flex-direction: column;
+	gap: var(--island-gap);
+	box-sizing: border-box;
+	min-height: 100dvh;
+	padding: var(--island-gap);
+
+	@mixin smaller-than $mantine-breakpoint-sm {
+		--island-gap: rem(4px);
+	}
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--mantine-spacing-md);
+	min-height: rem(54px);
+	padding: rem(4px) rem(4px) rem(4px) rem(12px);
+}
+
+.nav {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: rem(2px);
+	padding-left: rem(14px);
+}
+
+.navItem,
+.navIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: rem(36px);
+	border-radius: var(--mantine-radius-md);
+	color: var(--nz-ink-2);
+	text-decoration: none;
+
+	@mixin hover {
+		background-color: var(--nz-hover);
+		color: var(--nz-ink);
+	}
+
+	&[data-status='active'] {
+		background-color: var(--nz-nav-active);
+		color: var(--nz-on-nav-active);
+	}
+}
+
+.navItem {
+	gap: rem(7px);
+	padding: 0 rem(13px) 0 rem(10px);
+	font-size: var(--mantine-font-size-md);
+	font-weight: 500;
+	white-space: nowrap;
+
+	&[data-status='active'] {
+		font-weight: 600;
+	}
+}
+
+/* Невидимая жирная копия подписи держит ширину: у активного пункта начертание жирнее, а соседи не сдвигаются. */
+.navLabel {
+	display: inline-flex;
+	flex-direction: column;
+
+	&::after {
+		/* Пустой альтернативный текст: копию не читают вспомогательные технологии. */
+		content: attr(data-label) / '';
+		height: 0;
+		overflow: hidden;
+		font-weight: 600;
+		visibility: hidden;
+		pointer-events: none;
+		user-select: none;
+	}
+}
+
+.navIcon {
+	width: rem(40px);
+}
+
+.navDivider {
+	width: rem(1px);
+	height: rem(18px);
+	margin: 0 rem(8px);
+	background-color: var(--nz-line-strong);
+}
+
+/* Инструменты занимают место, оставшееся после навигации: по его ширине кнопка аккаунта решает, показывать ли email. */
+.tools {
+	display: flex;
+	flex: 1 1 0;
+	align-items: center;
+	justify-content: flex-end;
+	gap: rem(10px);
+	min-width: 0;
+	container-type: inline-size;
+}
+
+.main {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var(--island-gap);
+	min-width: 0;
+}
+
+.bottomNav {
+	position: sticky;
+	bottom: 0;
+	display: grid;
+	grid-auto-columns: minmax(0, 1fr);
+	grid-auto-flow: column;
+	padding-bottom: env(safe-area-inset-bottom, 0);
+	background-color: var(--nz-canvas);
+}
+
+.tab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	height: rem(52px);
+	border-radius: rem(12px);
+	color: var(--nz-ink-2);
+
+	&[data-status='active'] {
+		background-color: var(--nz-nav-active);
+		color: var(--nz-on-nav-active);
+	}
+}

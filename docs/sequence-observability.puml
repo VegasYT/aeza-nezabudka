@@ -1,0 +1,52 @@
+@startuml "observability-sequence"
+title Invoice Keeper — сбор и просмотр метрик и логов
+
+autonumber
+hide footbox
+
+actor "Инженер\nсопровождения" as Operator
+participant "Backend" as Backend
+participant "Docker logging" as Docker
+participant "Prometheus" as Prometheus
+participant "Promtail" as Promtail
+database "Loki" as Loki
+participant "Grafana" as Grafana
+
+par Сбор метрик
+    loop Каждые 15 секунд
+        Prometheus -> Backend: GET /metrics
+        Backend --> Prometheus: Метрики в формате Prometheus
+        Prometheus -> Prometheus: Сохранить временные ряды
+    end
+else Сбор логов
+    Backend -> Docker: Записать JSON-событие\nс request_id / operation_id
+    loop По мере появления записей
+        Promtail -> Docker: Прочитать новые логи контейнеров
+        Docker --> Promtail: JSON-записи
+        Promtail -> Promtail: Добавить service, environment, level
+        Promtail -> Loki: Отправить пакет записей
+        Loki -> Loki: Сохранить логи с retention
+    end
+end
+
+== Диагностика ==
+
+Operator -> Grafana: Открыть dashboard Invoice Keeper
+Grafana -> Prometheus: Выполнить PromQL-запросы
+Prometheus --> Grafana: Значения метрик
+Grafana --> Operator: Показать состояние системы
+
+Operator -> Grafana: Перейти к логам сервиса\nза выбранный интервал
+Grafana -> Loki: Выполнить LogQL-запрос
+Loki --> Grafana: Подходящие записи
+Grafana --> Operator: Показать связанные логи
+
+alt Контур наблюдаемости недоступен
+    Grafana --> Operator: Показать ошибку источника данных
+    note over Backend
+      API, планировщик и отправка уведомлений
+      продолжают работать независимо
+    end note
+end
+
+@enduml

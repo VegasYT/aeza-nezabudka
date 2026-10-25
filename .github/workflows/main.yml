@@ -1,0 +1,54 @@
+# Выкладка на сервер: когда коммит попадает в main, и вручную со страницы Actions.
+# Тестов и линтеров здесь нет: их запускают локально перед слиянием (backend/AGENTS.md),
+# а образы собирает сам сервер в infra/deploy.sh.
+# Секреты репозитория: DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS.
+# Как их получить и что лежит на сервере: infra/README.md.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# две выкладки одновременно сломали бы друг друга; новая ждёт окончания текущей
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Ключ SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      # Сервер в GitHub не ходит (репозиторий закрытый): код приносит сам workflow.
+      # infra/.env на сервере исключён и не удаляется.
+      - name: Код на сервер
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          echo "$GITHUB_SHA" > REVISION
+          rsync -az --delete \
+            --exclude .git --exclude infra/.env --exclude backend/.env \
+            --exclude node_modules --exclude .venv --exclude dist \
+            -e "ssh -i ~/.ssh/deploy" \
+            ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+      - name: Выкладка
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: ssh -i ~/.ssh/deploy "$DEPLOY_USER@$DEPLOY_HOST" "sh $DEPLOY_PATH/infra/deploy.sh"

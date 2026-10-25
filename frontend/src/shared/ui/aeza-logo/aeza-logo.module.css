@@ -1,0 +1,19 @@
+.logo {
+	display: block;
+	width: auto;
+	height: rem(22px);
+}
+
+.mark {
+	display: block;
+	width: rem(28px);
+	height: rem(28px);
+}
+
+.key {
+	fill: var(--nz-logo-key);
+}
+
+.glyph {
+	fill: var(--nz-logo-glyph);
+}

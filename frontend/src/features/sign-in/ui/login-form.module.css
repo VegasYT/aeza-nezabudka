@@ -1,0 +1,34 @@
+.title {
+	text-transform: uppercase;
+}
+
+/* Пояснение - мягкий голубой, ошибка - мягкий розовый из брендбука. */
+.notice {
+	--alert-bg: var(--nz-accent-soft);
+	--alert-bd: transparent;
+	--notice-color: var(--nz-on-accent-soft);
+
+	&[data-tone='danger'] {
+		--alert-bg: var(--nz-danger-soft);
+		--notice-color: var(--nz-on-danger-soft);
+	}
+}
+
+/* Mantine ставит --alert-color инлайн, а тексту - чёрный или белый: цвет задаём частям напрямую. */
+.noticeText {
+	color: var(--notice-color);
+}
+
+.back {
+	align-self: flex-start;
+	margin-left: calc(var(--mantine-spacing-xs) * -1);
+}
+
+.code {
+	height: rem(52px);
+	font-size: rem(22px);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.3em;
+	text-align: center;
+}

@@ -1,0 +1,26 @@
+.badge {
+	display: inline-flex;
+	align-items: center;
+	height: rem(20px);
+	padding: 0 rem(7px);
+	border-radius: rem(6px);
+	font-size: rem(11px);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.badgeStopped {
+	box-shadow: inset 0 0 0 1px var(--nz-line-strong);
+	color: var(--nz-ink-3);
+}
+
+.badgeCompleted {
+	box-shadow: inset 0 0 0 1px var(--nz-status-paid-ink);
+	color: var(--nz-status-paid-ink);
+}
+
+.badgeOverdue {
+	background: var(--nz-danger-soft);
+	color: var(--nz-on-danger-soft);
+	font-weight: 700;
+}

@@ -1,0 +1,13 @@
+.island {
+	--nz-field: var(--nz-inset);
+
+	padding: var(--mantine-spacing-lg);
+
+	@mixin smaller-than $mantine-breakpoint-sm {
+		padding: rem(14px);
+	}
+
+	border-radius: var(--mantine-radius-lg);
+	background-color: var(--nz-island);
+	box-shadow: var(--nz-island-ring);
+}

@@ -1,0 +1,138 @@
+/* Фокус тёмно-голубой: фирменный голубой на белом слишком бледный для рамки фокуса. */
+.focus:focus-visible {
+	outline: 2px solid var(--nz-focus);
+	outline-offset: 2px;
+}
+
+/* Поле утоплено в остров и окно, а на холсте - цвета кнопок рядом (`--nz-field`). Переменные стоят на обёртке: так Mantine сохраняет свои рамки фокуса и ошибки. */
+.inputWrapper {
+	@mixin smaller-than $mantine-breakpoint-sm {
+		--input-height-xs: rem(44px);
+		--input-height-sm: rem(44px);
+		--input-height-md: rem(44px);
+	}
+}
+
+/* iOS Safari приближает страницу к полю со шрифтом меньше 16 px: на телефоне текст в полях 16 px. */
+.input {
+	@mixin smaller-than $mantine-breakpoint-sm {
+		font-size: rem(16px);
+	}
+}
+
+.inputWrapper[data-variant='default'] {
+	--input-bg: var(--nz-field);
+	--input-bd: var(--nz-line-strong);
+	--input-bd-focus: var(--nz-focus);
+
+	&[data-error] {
+		--input-bd: var(--mantine-color-error);
+	}
+}
+
+.raised {
+	--nz-field: var(--nz-inset);
+
+	border: 0;
+	background-color: var(--nz-raised);
+	box-shadow: var(--nz-shadow);
+}
+
+/* Заголовок окон и листов прописными Exo 2, как на макетах. */
+.dialogTitle {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(22px);
+	font-weight: 900;
+	line-height: 1.15;
+	text-transform: uppercase;
+	overflow-wrap: anywhere;
+}
+
+/* Наведение пунктов списков, меню и крестика окна: оттенки Mantine по умолчанию сливаются с нашими поверхностями. */
+.option:hover:where(:not([data-combobox-selected], [data-combobox-disabled])) {
+	background-color: var(--mantine-color-gray-light-hover);
+}
+
+.menuItem {
+	--menu-item-hover: var(--mantine-color-gray-light-hover);
+
+	@mixin smaller-than $mantine-breakpoint-sm {
+		min-height: rem(44px);
+	}
+}
+
+.closeButton {
+	@mixin smaller-than $mantine-breakpoint-sm {
+		--cb-size-sm: rem(44px);
+		--cb-size-md: rem(44px);
+		--cb-size-lg: rem(44px);
+	}
+
+	&:where(:not(:disabled, [data-disabled])):hover {
+		background-color: var(--mantine-color-gray-light-hover);
+	}
+}
+
+/* На телефоне цели нажатия не ниже 44 px (здесь, у полей, крестика и пунктов меню). Mantine объявляет высоты размеров на корне компонента, поэтому они переопределяются один раз. */
+.button {
+	@mixin smaller-than $mantine-breakpoint-sm {
+		--button-height-xs: rem(44px);
+		--button-height-sm: rem(44px);
+		--button-height-md: rem(44px);
+		--button-height-compact-xs: rem(44px);
+		--button-height-compact-sm: rem(44px);
+		--button-height-compact-md: rem(44px);
+	}
+}
+
+.actionIcon {
+	@mixin smaller-than $mantine-breakpoint-sm {
+		--ai-size-md: rem(44px);
+		--ai-size-lg: rem(44px);
+	}
+}
+
+.segmentedLabel {
+	@mixin smaller-than $mantine-breakpoint-sm {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: rem(44px);
+		padding-inline: rem(8px);
+	}
+}
+
+/* Невыбранные переключатели и флажки в тёмной схеме по умолчанию цвета окна. */
+.choice:not(:checked),
+.choiceIndicator:not([data-checked]) {
+	@mixin dark {
+		border-color: var(--nz-ink-4);
+		background-color: var(--nz-inset);
+	}
+}
+
+/* Шапка модального окна по умолчанию цвета острова: в тёмной схеме она темнее тела окна. */
+.raisedHeader {
+	background-color: var(--nz-raised);
+}
+
+.tooltip {
+	background-color: var(--nz-tooltip);
+	color: var(--nz-on-tooltip);
+}
+
+.segmentedRoot {
+	background-color: var(--nz-seg-track);
+}
+
+.segmentedIndicator {
+	background-color: var(--nz-seg-active);
+	box-shadow: var(--nz-seg-shadow);
+}
+
+/* На телефоне нижние уведомления поднимаются над нижней панелью разделов. */
+.notifications[data-position^='bottom'] {
+	@mixin smaller-than $mantine-breakpoint-sm {
+		bottom: calc(rem(72px) + env(safe-area-inset-bottom, 0px));
+	}
+}

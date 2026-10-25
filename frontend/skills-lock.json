@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "skills": {
+    "feature-sliced-design": {
+      "source": "feature-sliced/skills",
+      "sourceType": "github",
+      "skillPath": "feature-sliced-design/SKILL.md",
+      "computedHash": "ffed722f612ca9f9de3f35345c2beb40fb0d56a39391d85f27d6523cf52a07d3"
+    },
+    "interface-design": {
+      "source": "dammyjay93/interface-design",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/interface-design/SKILL.md",
+      "computedHash": "340cc79a1558f09371aa3eb689952a8b777c1d7362c24226e99693606a80828e"
+    },
+    "mantine-custom-components": {
+      "source": "mantinedev/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mantine-custom-components/SKILL.md",
+      "computedHash": "eb1dff7e3a2d6cf38a2444a474682bc88e1b8395896a68e29ca0dd848564552c"
+    },
+    "no-ai-design-slop": {
+      "source": "mengto/skills",
+      "sourceType": "github",
+      "skillPath": "agent-skills/ui/no-ai-design-slop/SKILL.md",
+      "computedHash": "b3b7e88b282f4e498c10592d77f3a55e65ad1b81979cf2a6b06aa07e84eed34f"
+    },
+    "react-router": {
+      "source": "TanStack/router",
+      "sourceType": "github",
+      "skillPath": "packages/react-router/skills/react-router/SKILL.md",
+      "computedHash": "4a108fd017b8098d18258311ac598a26cbd6f53a43c306319093f841420cf7e7"
+    },
+    "router-core": {
+      "source": "TanStack/router",
+      "sourceType": "github",
+      "skillPath": "packages/router-core/skills/router-core/SKILL.md",
+      "computedHash": "c5664f69b8e2fb103fcb55b70f6e974f8b24782e6dfc8d505ecb5038dedef1a5"
+    },
+    "router-plugin": {
+      "source": "TanStack/router",
+      "sourceType": "github",
+      "skillPath": "packages/router-plugin/skills/router-plugin/SKILL.md",
+      "computedHash": "5156eeae74ff87a091bc76bf8cfada7fc06fc5e9d5877f9ed2ee4f15cb6c4df4"
+    },
+    "router-query": {
+      "source": "TanStack/router",
+      "sourceType": "github",
+      "skillPath": "packages/react-router/skills/compositions/router-query/SKILL.md",
+      "computedHash": "1c1cbbc7b9aff420c55ae862a4dee119f77a43c5737b4b0e25375325d26fe516"
+    },
+    "tanstack-query-best-practices": {
+      "source": "deckardger/tanstack-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/tanstack-query/SKILL.md",
+      "computedHash": "8e5a7e3cdc6900c3967945658aa277629ba7b5264ddadc017ee2b76359456719"
+    }
+  }
+}

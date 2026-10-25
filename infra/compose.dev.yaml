@@ -1,0 +1,62 @@
+# Backend для локальной работы над frontend: вход без Aéza (DEV_LOGIN_PASSWORD), тестовые данные.
+# Запуск из корня репозитория, api - на http://localhost:8000:
+#   docker compose -f infra/compose.dev.yaml up -d --build
+# Только для своей машины: порт открыт лишь на 127.0.0.1. Подробности: infra/README.md.
+name: nezabudka-dev
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/app
+  TZ: Europe/Moscow
+  APP_ENV: development
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build: ../backend
+    image: nezabudka-dev-backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # повторный запуск ничего не добавляет
+  seed:
+    image: nezabudka-dev-backend
+    command: ["python", "-m", "app.seed"]
+    environment:
+      <<: *backend-env
+      DEMO_USER_EMAIL: user@dev.local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    image: nezabudka-dev-backend
+    command: ["python", "-m", "app.main"]
+    environment:
+      <<: *backend-env
+      DEV_LOGIN_PASSWORD: ${DEV_LOGIN_PASSWORD:-dev}
+      ADMIN_EMAILS: admin@dev.local,admin+2fa@dev.local
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:

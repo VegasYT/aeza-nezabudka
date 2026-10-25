@@ -1,0 +1,164 @@
+@startuml "use-case"
+title Invoice Keeper — диаграмма вариантов использования
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor "Пользователь" as User
+actor "Администратор" as Admin
+actor "Telegram" as Telegram
+
+Admin --|> User
+
+rectangle "Invoice Keeper" {
+    usecase "Войти в систему\nаккаунтом Aéza" as Login
+    usecase "Выйти из системы" as Logout
+    usecase "Проверить токен\nи роль пользователя" as Authorize
+
+    usecase "Просматривать общий\nсписок платежей" as ViewPayments
+    usecase "Просматривать платежи\nпо периодам" as ViewPeriods
+    usecase "Просматривать просрочки" as ViewOverdue
+    usecase "Просматривать итоги\nпо валютам" as ViewTotals
+
+    usecase "Отметить период\nкак оплаченный" as MarkPaid
+    usecase "Указать фактическую\nдату оплаты" as SetPaymentDate
+    usecase "Исправить фактическую\nдату оплаты" as CorrectPaymentDate
+    usecase "Отменить отметку\nоб оплате" as CancelPayment
+
+    usecase "Подключить личный\nчат Telegram" as LinkTelegram
+    usecase "Включить или выключить\nличные напоминания" as TogglePersonal
+    usecase "Отвязать Telegram" as UnlinkTelegram
+
+    usecase "Создать регулярный\nплатёж" as CreatePayment
+    usecase "Изменить регулярный\nплатёж" as EditPayment
+    usecase "Пересчитать будущие\nнеоплаченные периоды" as RecalcFuture
+    usecase "Прекратить регулярный\nплатёж (история сохраняется)" as StopPayment
+
+    usecase "Создать пользователя" as CreateUser
+    usecase "Изменить пользователя\n(пароль, включён)" as EditUser
+    usecase "Удалить пользователя" as DeleteUser
+
+    usecase "Выполнить плановую\nпроверку платежей" as ScheduledCheck
+    usecase "Досоздать следующие\nпериоды" as GenerateNext
+    usecase "Поставить напоминание\nв очередь (за 3 дня и меньше)" as EnqueueReminder
+    usecase "Проверить отсутствие\nдубликата напоминания" as CheckDuplicate
+    usecase "Отправить напоминание\nв Telegram" as SendReminder
+    usecase "Вычислить просрочку\nпри чтении" as DetectOverdue
+
+}
+
+User --> Login
+User --> Logout
+User --> LinkTelegram
+User --> TogglePersonal
+User --> UnlinkTelegram
+LinkTelegram --> Telegram
+
+User --> ViewPayments
+User --> ViewPeriods
+User --> ViewOverdue
+User --> ViewTotals
+User --> MarkPaid
+User --> CorrectPaymentDate
+User --> CancelPayment
+
+Admin --> CreatePayment
+Admin --> EditPayment
+Admin --> StopPayment
+Admin --> CreateUser
+Admin --> EditUser
+Admin --> DeleteUser
+
+MarkPaid ..> SetPaymentDate : <<include>>
+CorrectPaymentDate ..> SetPaymentDate : <<include>>
+
+CreatePayment ..> GenerateNext : <<include>>
+CreatePayment ..> EnqueueReminder : <<include>>
+EditPayment ..> RecalcFuture : <<include>>
+RecalcFuture ..> GenerateNext : <<include>>
+RecalcFuture ..> EnqueueReminder : <<include>>
+
+ViewPeriods ..> DetectOverdue : <<include>>
+ViewOverdue ..> DetectOverdue : <<include>>
+ViewTotals ..> DetectOverdue : <<include>>
+
+ViewPayments ..> Authorize : <<include>>
+ViewPeriods ..> Authorize : <<include>>
+ViewOverdue ..> Authorize : <<include>>
+ViewTotals ..> Authorize : <<include>>
+MarkPaid ..> Authorize : <<include>>
+CorrectPaymentDate ..> Authorize : <<include>>
+CancelPayment ..> Authorize : <<include>>
+CreatePayment ..> Authorize : <<include>>
+EditPayment ..> Authorize : <<include>>
+StopPayment ..> Authorize : <<include>>
+CreateUser ..> Authorize : <<include>>
+EditUser ..> Authorize : <<include>>
+DeleteUser ..> Authorize : <<include>>
+
+EnqueueReminder ..> CheckDuplicate : <<include>>
+Telegram <-- SendReminder
+
+ScheduledCheck ..> GenerateNext : <<include>>
+ScheduledCheck ..> EnqueueReminder : <<include>>
+ScheduledCheck ..> SendReminder : <<include>>
+
+note right of ViewTotals
+  Итоги рассчитываются отдельно:
+  • RUB
+  • USD
+  • EUR
+  Конвертация валют не выполняется
+end note
+
+note bottom of ViewPeriods
+  Для каждого ежемесячного периода
+  хранятся отдельные срок и статус оплаты
+end note
+
+note bottom of SendReminder
+  В общий чат из .env и в личные чаты
+  пользователей, включивших личные напоминания.
+  Название, сумма, валюта, дата оплаты.
+  Перед отправкой повторно проверяется,
+  что период не оплачен и платёж не прекращён.
+  Сбой Telegram: повтор позже
+end note
+
+note bottom of EnqueueReminder
+  Окно: до срока 3 дня или меньше,
+  срок ещё не прошёл.
+  Одно напоминание на период
+  каждому получателю
+  (уникальность в базе)
+end note
+
+note left of ScheduledCheck
+  Раз в минуту внутри системы:
+  досоздание периодов, постановка
+  и отправка напоминаний.
+  Просрочка не хранится, а вычисляется
+  при каждом чтении
+end note
+
+note bottom of EditPayment
+  Меняются только неоплаченные периоды
+  со сроком сегодня или позже.
+  Оплаченные и просроченные не трогаются
+end note
+
+note right of Admin
+  Администраторы - email аккаунтов
+  Aéza в .env, через панель
+  не меняются
+end note
+
+note bottom of Authorize
+  Invoice Keeper проверяет свою сессию
+  или X-API-KEY аккаунта Aéza и роль
+  из белого списка для REST API /api/v1
+end note
+
+@enduml

@@ -1,0 +1,126 @@
+[project]
+name = "invoice-keeper-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram>=3.28",
+    "aiohttp-socks>=0.10",
+    "aiokafka>=0.14.0",
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "prometheus-client>=0.26.0",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.16.1",
+    "pyyaml>=6.0.3",
+    "sqlalchemy[asyncio]>=2.1.6",
+    "structlog>=26.1.0",
+    "tzdata>=2026.5",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-xdist>=3.6",
+    "ruff>=0.17.2",
+    "testcontainers[postgres]>=4.15.0",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF", "PL", "PT", "TID"]
+ignore = ["PLR2004", "PLR0913", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "PLR2004"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "core", "apps"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["migrations/versions/"]
+
+[[tool.mypy.overrides]]
+# У aiokafka нет аннотаций типов.
+module = ["aiokafka", "aiokafka.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+pythonpath = ["."]
+testpaths = ["tests"]
+# 4 процесса: у каждого свой контейнер PostgreSQL; файл целиком в одном процессе, чтобы
+# фикстуры модуля (Kafka) не поднимались несколько раз. Отладка по шагам: -n 0.
+addopts = "-n 4 --dist loadfile"
+markers = ["integration: нужен запущенный Docker"]
+
+[tool.importlinter]
+root_packages = ["app", "core", "apps"]
+
+[[tool.importlinter.contracts]]
+name = "core не зависит от apps и app"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["apps", "app"]
+
+[[tool.importlinter.contracts]]
+name = "apps.users обращается к другим модулям только через их сервисы"
+type = "forbidden"
+# У контрактов модулей запрещён только прямой импорт: через сервис другого модуля
+# его модели использовать можно.
+allow_indirect_imports = true
+source_modules = ["apps.users"]
+forbidden_modules = ["apps.payments.models", "apps.payments.repository", "apps.departments.models", "apps.departments.repository", "apps.reminders.models", "apps.reminders.repository", "apps.integrations.models", "apps.integrations.repository", "apps.audit.models", "apps.audit.repository"]
+
+[[tool.importlinter.contracts]]
+name = "apps.payments обращается к другим модулям только через их сервисы"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["apps.payments"]
+forbidden_modules = ["apps.users.models", "apps.users.repository", "apps.departments.models", "apps.departments.repository", "apps.reminders.models", "apps.reminders.repository", "apps.integrations.models", "apps.integrations.repository", "apps.audit.models", "apps.audit.repository"]
+
+[[tool.importlinter.contracts]]
+name = "apps.departments обращается к другим модулям только через их сервисы"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["apps.departments"]
+forbidden_modules = ["apps.users.models", "apps.users.repository", "apps.payments.models", "apps.payments.repository", "apps.reminders.models", "apps.reminders.repository", "apps.integrations.models", "apps.integrations.repository", "apps.audit.models", "apps.audit.repository"]
+
+[[tool.importlinter.contracts]]
+name = "apps.reminders обращается к другим модулям только через их сервисы"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["apps.reminders"]
+forbidden_modules = ["apps.users.models", "apps.users.repository", "apps.payments.models", "apps.payments.repository", "apps.departments.models", "apps.departments.repository", "apps.integrations.models", "apps.integrations.repository", "apps.audit.models", "apps.audit.repository"]
+
+[[tool.importlinter.contracts]]
+name = "apps.integrations обращается к другим модулям только через их сервисы"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["apps.integrations"]
+forbidden_modules = ["apps.users.models", "apps.users.repository", "apps.payments.models", "apps.payments.repository", "apps.departments.models", "apps.departments.repository", "apps.reminders.models", "apps.reminders.repository", "apps.audit.models", "apps.audit.repository"]
+
+[[tool.importlinter.contracts]]
+name = "apps.audit обращается к другим модулям только через их сервисы"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["apps.audit"]
+forbidden_modules = ["apps.users.models", "apps.users.repository", "apps.payments.models", "apps.payments.repository", "apps.departments.models", "apps.departments.repository", "apps.reminders.models", "apps.reminders.repository", "apps.integrations.models", "apps.integrations.repository"]

@@ -1,0 +1,6 @@
+.island {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--mantine-spacing-sm);
+}

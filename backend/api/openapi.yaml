@@ -1,0 +1,3632 @@
+openapi: 3.1.0
+info:
+  title: Незабудка API
+  description: "\nНапоминания о регулярных платежах компании: аренда, подписки, серверы.\nПлатёж порождает\
+    \ ежемесячные **периоды**, у каждого свой срок и своя отметка оплаты.\n\n### Вход\n1. `POST /auth/login`\
+    \ - email и пароль аккаунта Aéza.\n2. `POST /auth/use-challenge` или, если в `requirements` есть `totp`,\
+    \ `POST /auth/tfa/totp`.\n3. Полученный `session` - в **Authorize**, схема `bearer`.\n   Другие системы\
+    \ передают `X-API-KEY` аккаунта Aéza.\n\nВойти могут только участники белого списка. Роли: `admin`\
+    \ - всё; `user` - просмотр и отметка оплаты;\n`integration` - платежи и оплаты по `X-API-KEY`, без\
+    \ входа в панель.\n\n### Формат\n- JSON в camelCase. Списки - `{items, total}`, параметры `limit`\
+    \ (до 100) и `offset`.\n- Суммы - целые копейки или центы (`amountMinor`), итоги по каждой валюте\
+    \ отдельно.\n- Даты - `ГГГГ-ММ-ДД` в часовом поясе системы, серверное сегодня - `GET /settings`.\n\
+    - `POST /recurring-payments` принимает `Idempotency-Key`: повтор не создаёт второй платёж.\n\n###\
+    \ Ошибки\n`{statusCode, message, error, timestamp, path, payload, requestId}`,\nгде `error` - код\
+    \ для программы.\n400 `bad_request` - в `payload` список `{field, message}`; 401 `not_auth`; 403 `forbidden`;\n\
+    404 `not_found`; 409 - конфликт с кодом в `error`; 429 - много неудачных входов.\n"
+  version: 0.1.0
+paths:
+  /api/v1/auth/login:
+    post:
+      tags:
+      - Вход
+      summary: 'Вход аккаунтом Aéza: шаг 1'
+      description: Email и пароль аккаунта Aéza, как `POST /api/v2/auth/login` у Aéza. Ответ - `challenge`
+        и `requirements` от Aéza. Пустой `requirements` - дальше `POST /auth/use-challenge`, иначе код
+        2FA в `POST /auth/tfa/totp`. 400 `invalid_credentials` - неверный email или пароль.
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginChallengeResponse'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Слишком много попыток, повторите позже (заголовок Retry-After)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис входа Aéza временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/use-challenge:
+    post:
+      tags:
+      - Вход
+      summary: 'Вход: шаг 2 без 2FA'
+      description: Меняет `challenge` на токен сессии. 403 `not_a_member` - аккаунта нет в белом списке;
+        400 `invalid_challenge` - срок входа истёк.
+      operationId: use_challenge
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UseChallengeRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Слишком много попыток, повторите позже (заголовок Retry-After)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис входа Aéza временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/tfa/totp:
+    post:
+      tags:
+      - Вход
+      summary: 'Вход: шаг 2 с кодом 2FA'
+      description: '`challenge` и код 2FA аккаунта Aéza. 400 `invalid_code` - неверный код.'
+      operationId: submit_totp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Слишком много попыток, повторите позже (заголовок Retry-After)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис входа Aéza временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - Вход
+      summary: Выход
+      description: Сессия удаляется, токен больше не действует.
+      operationId: logout
+      responses:
+        '204':
+          description: Successful Response
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+  /api/v1/auth/me:
+    get:
+      tags:
+      - Вход
+      summary: Текущий участник
+      description: Email и роль владельца токена или ключа.
+      operationId: get_current_user
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+  /api/v1/users:
+    get:
+      tags:
+      - Пользователи
+      summary: Белый список
+      description: Участники с ролями `user` и `integration` по алфавиту email; администраторы из настроек
+        не показываются. Только администратор.
+      operationId: list_users
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Сколько элементов вернуть
+          default: 50
+          title: Limit
+        description: Сколько элементов вернуть
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Сколько элементов пропустить
+          default: 0
+          title: Offset
+        description: Сколько элементов пропустить
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_User_'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Пользователи
+      summary: Добавить участника
+      description: Email аккаунта Aéza и роль. Участник сразу может войти своим аккаунтом Aéza. Email
+        уже в списке - 409 `login_taken`. Только администратор.
+      operationId: create_user
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/users/{user_id}:
+    patch:
+      tags:
+      - Пользователи
+      summary: Изменить участника
+      description: Роль или включение. Отключение и смена роли сразу завершают сессии участника. Администратора
+        из настроек изменить нельзя - 409 `admin_protected`.
+      operationId: update_user
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Пользователи
+      summary: Удалить участника
+      description: Сессии и привязка Telegram удаляются, история оплат сохраняется с email. Администратора
+        из настроек удалить нельзя - 409 `admin_protected`.
+      operationId: delete_user
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/recurring-payments:
+    get:
+      tags:
+      - Регулярные платежи
+      summary: Список регулярных платежей
+      description: 'По названию. Фильтры: статус, отдел (`none` - без отдела), поиск `q`.'
+      operationId: list_recurring_payments
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Сколько элементов вернуть
+          default: 50
+          title: Limit
+        description: Сколько элементов вернуть
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Сколько элементов пропустить
+          default: 0
+          title: Offset
+        description: Сколько элементов пропустить
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/RecurringPaymentStatus'
+          - type: 'null'
+          description: Без фильтра - все
+          title: Status
+        description: Без фильтра - все
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - anyOf:
+            - type: string
+              format: uuid
+            - const: none
+              type: string
+            description: id отдела или `none` - только платежи без отдела
+          - type: 'null'
+          title: Departmentid
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 200
+            description: Часть названия платежа, без учёта регистра
+            examples:
+            - аренда
+          - type: 'null'
+          title: Q
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_RecurringPayment_'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Регулярные платежи
+      summary: Создать регулярный платёж
+      description: Создаёт периоды до ближайшего будущего. Если до срока 3 дня или меньше, напоминание
+        уходит сразу. Только администратор.
+      operationId: create_recurring_payment
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 128
+          - type: 'null'
+          description: Повтор запроса с тем же ключом не создаёт платёж второй раз
+          title: Idempotency-Key
+        description: Повтор запроса с тем же ключом не создаёт платёж второй раз
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecurringPaymentCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPayment'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/recurring-payments/{payment_id}:
+    get:
+      tags:
+      - Регулярные платежи
+      summary: Регулярный платёж
+      description: С ближайшим сроком и просрочкой.
+      operationId: get_recurring_payment
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: payment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Payment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPayment'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Регулярные платежи
+      summary: Изменить регулярный платёж
+      description: Меняются только неоплаченные периоды со сроком сегодня или позже; оплаченные и просроченные
+        остаются как были. Прекращённый платёж изменить нельзя (409). Только администратор.
+      operationId: update_recurring_payment
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: payment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Payment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecurringPaymentUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPayment'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Регулярные платежи
+      summary: Прекратить регулярный платёж
+      description: 'История сохраняется, неоплаченные периоды со сроком позже сегодня и их напоминания
+        удаляются. Неоплаченный период со сроком сегодня и просроченные остаются: их всё ещё нужно оплатить.
+        Уже прекращённый - 409 `payment_stopped`. Только администратор.'
+      operationId: stop_recurring_payment
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: payment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Payment Id
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/recurring-payments/{payment_id}/resume:
+    post:
+      tags:
+      - Регулярные платежи
+      summary: Возобновить регулярный платёж
+      description: Прекращённый платёж снова действует. Оплаченные и просроченные периоды остаются, новые
+        идут с `nextDueDate`, а без неё - со следующего срока прежнего расписания, не раньше сегодня.
+        `occurrenceLimit` учитывает уже созданные периоды. Если до срока 3 дня или меньше, напоминание
+        уходит сразу. Действующий платёж - 409 `payment_active`. Администратор и интеграция.
+      operationId: resume_recurring_payment
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: payment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Payment Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/RecurringPaymentResume'
+              - type: 'null'
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPayment'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences:
+    get:
+      tags:
+      - Периоды оплаты
+      summary: Список периодов оплаты
+      description: Оплаченные, неоплаченные и просроченные периоды; сортировка по сроку.
+      operationId: list_payment_occurrences
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Сколько элементов вернуть
+          default: 50
+          title: Limit
+        description: Сколько элементов вернуть
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Сколько элементов пропустить
+          default: 0
+          title: Offset
+        description: Сколько элементов пропустить
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/OccurrenceStatus'
+          - type: 'null'
+          title: Status
+      - name: currency
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/Currency'
+          - type: 'null'
+          title: Currency
+      - name: recurringPaymentId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Recurringpaymentid
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - anyOf:
+            - type: string
+              format: uuid
+            - const: none
+              type: string
+            description: id отдела или `none` - только платежи без отдела
+          - type: 'null'
+          title: Departmentid
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 200
+            description: Часть названия платежа, без учёта регистра
+            examples:
+            - аренда
+          - type: 'null'
+          title: Q
+      - name: paymentStatus
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/RecurringPaymentStatus'
+          - type: 'null'
+          description: active - только действующие платежи, stopped - прекращённые
+          title: Paymentstatus
+        description: active - только действующие платежи, stopped - прекращённые
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Срок не раньше
+          title: From
+        description: Срок не раньше
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Срок не позже
+          title: To
+        description: Срок не позже
+      - name: order
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/SortOrder'
+          description: Сортировка по сроку
+          default: asc
+        description: Сортировка по сроку
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_PaymentOccurrence_'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences/{occurrence_id}:
+    get:
+      tags:
+      - Периоды оплаты
+      summary: Период оплаты
+      description: Срок, сумма, отметка оплаты и время последнего напоминания.
+      operationId: get_payment_occurrence
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: occurrence_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Occurrence Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOccurrence'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Периоды оплаты
+      summary: Отметить, исправить или отменить оплату
+      description: paid=true отмечает оплату или исправляет фактическую дату, paid=false отменяет отметку
+        и очищает дату. Срок периода не меняется.
+      operationId: update_payment_occurrence
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: occurrence_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Occurrence Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentOccurrenceUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOccurrence'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payments/summary:
+    get:
+      tags:
+      - Итоги
+      summary: Итоги по валютам
+      description: Суммы периодов со сроком в диапазоне, отдельно по RUB, USD и EUR.
+      operationId: get_payments_summary
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Срок не раньше
+          title: From
+        description: Срок не раньше
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Срок не позже
+          title: To
+        description: Срок не позже
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - anyOf:
+            - type: string
+              format: uuid
+            - const: none
+              type: string
+            description: id отдела или `none` - только платежи без отдела
+          - type: 'null'
+          title: Departmentid
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 200
+            description: Часть названия платежа, без учёта регистра
+            examples:
+            - аренда
+          - type: 'null'
+          title: Q
+      - name: paymentStatus
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/RecurringPaymentStatus'
+          - type: 'null'
+          description: active - только действующие платежи, stopped - прекращённые
+          title: Paymentstatus
+        description: active - только действующие платежи, stopped - прекращённые
+      - name: includePlanned
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Добавить plannedMinor и plannedCount - периоды, которых ещё нет в базе; нужен `to`
+          default: false
+          title: Includeplanned
+        description: Добавить plannedMinor и plannedCount - периоды, которых ещё нет в базе; нужен `to`
+      - name: groupBy
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - const: month
+            type: string
+          - type: 'null'
+          description: month - ещё и итоги по месяцам; нужны `from` и `to`
+          title: Groupby
+        description: month - ещё и итоги по месяцам; нужны `from` и `to`
+      - name: asOf
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: 'Снимок на дату: оплаченными считаются периоды с датой оплаты не позже неё, просрочка
+            считается от неё'
+          title: Asof
+        description: 'Снимок на дату: оплаченными считаются периоды с датой оплаты не позже неё, просрочка
+          считается от неё'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentsSummary'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payments/forecast:
+    get:
+      tags:
+      - Итоги
+      summary: Плановые периоды
+      description: 'Будущие периоды действующих платежей по расписанию, которых ещё нет в базе: для календаря
+        и бюджета. Ничего не записывает. Диапазон не больше двух лет.'
+      operationId: get_payments_forecast
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Сколько элементов вернуть
+          default: 50
+          title: Limit
+        description: Сколько элементов вернуть
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Сколько элементов пропустить
+          default: 0
+          title: Offset
+        description: Сколько элементов пропустить
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Срок не раньше; без него - сегодня
+          title: From
+        description: Срок не раньше; без него - сегодня
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          description: Срок не позже, не дальше двух лет от начала
+          title: To
+        description: Срок не позже, не дальше двух лет от начала
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - anyOf:
+            - type: string
+              format: uuid
+            - const: none
+              type: string
+            description: id отдела или `none` - только платежи без отдела
+          - type: 'null'
+          title: Departmentid
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 200
+            description: Часть названия платежа, без учёта регистра
+            examples:
+            - аренда
+          - type: 'null'
+          title: Q
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_PlannedOccurrence_'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/departments:
+    get:
+      tags:
+      - Отделы
+      summary: Список отделов
+      description: Доступен всем пользователям.
+      operationId: list_departments
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Сколько элементов вернуть
+          default: 50
+          title: Limit
+        description: Сколько элементов вернуть
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Сколько элементов пропустить
+          default: 0
+          title: Offset
+        description: Сколько элементов пропустить
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_Department_'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Отделы
+      summary: Создать отдел
+      description: Название уникально без учёта регистра, пробелы по краям обрезаются (409 `department_name_taken`).
+        Только администратор.
+      operationId: create_department
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentWrite'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/departments/{department_id}:
+    patch:
+      tags:
+      - Отделы
+      summary: Переименовать отдел
+      description: Название уникально без учёта регистра, пробелы по краям обрезаются (409 `department_name_taken`).
+        Только администратор.
+      operationId: update_department
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: department_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Department Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentWrite'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Отделы
+      summary: Удалить отдел
+      description: Платежи отдела остаются без отдела. Чат или личные напоминания, где в фильтре был только
+        этот отдел, переходят на все платежи. Только администратор.
+      operationId: delete_department
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: department_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Department Id
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/me/telegram:
+    get:
+      tags:
+      - Уведомления
+      summary: Состояние личного Telegram
+      description: Привязка, включение, блокировка бота и фильтр отделов текущего пользователя.
+      operationId: get_telegram_status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramStatus'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+    delete:
+      tags:
+      - Уведомления
+      summary: Отвязать Telegram
+      description: Привязка и фильтр удаляются, ожидающие личные напоминания отменяются.
+      operationId: unlink_telegram
+      responses:
+        '204':
+          description: Successful Response
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+    patch:
+      tags:
+      - Уведомления
+      summary: Настройки личных напоминаний
+      description: 'Меняются только переданные поля: `personalEnabled` включает или выключает напоминания,
+        `departmentIds` оставляет только платежи этих отделов (`null` - все платежи, платежи без отдела
+        при фильтре не приходят). Telegram остаётся привязан. Без привязки - 409 `telegram_not_linked`,
+        несуществующий отдел или пустой список - 400.'
+      operationId: update_telegram_settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramSettingsUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramStatus'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+  /api/v1/me/telegram/link:
+    post:
+      tags:
+      - Уведомления
+      summary: Ссылка для привязки Telegram
+      description: Одноразовая ссылка на бота, действует 10 минут. Прежняя неиспользованная ссылка перестаёт
+        действовать. Если бот не настроен в системе - 409 `telegram_not_configured`, Telegram недоступен
+        - 503 `telegram_unavailable`.
+      operationId: create_telegram_link
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLink'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис входа Aéza временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+  /api/v1/telegram-chats:
+    get:
+      tags:
+      - Уведомления
+      summary: Групповые чаты
+      description: Чаты, подключённые к напоминаниям, кроме общего чата из настроек. Только администратор.
+      operationId: list_group_chats
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Сколько элементов вернуть
+          default: 50
+          title: Limit
+        description: Сколько элементов вернуть
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Сколько элементов пропустить
+          default: 0
+          title: Offset
+        description: Сколько элементов пропустить
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_GroupChat_'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/telegram-chats/link:
+    post:
+      tags:
+      - Уведомления
+      summary: Ссылка для подключения группы
+      description: 'Одноразовый код, действует 10 минут. `url` - Telegram предложит выбрать группу и добавит
+        в неё бота, сообщения пойдут без темы. `command` - отправить в нужной теме супергруппы, где бот
+        уже есть: подключится эта тема. Одну группу можно подключить к нескольким темам, у каждой свой
+        фильтр отделов. Прежний неиспользованный код этого администратора перестаёт действовать. Если
+        бот не настроен в системе - 409 `telegram_not_configured`, Telegram недоступен - 503 `telegram_unavailable`.
+        Только администратор.'
+      operationId: create_group_chat_link
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupChatLink'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Операция невозможна в текущем состоянии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Сервис входа Aéza временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+  /api/v1/telegram-chats/{chat_id}:
+    patch:
+      tags:
+      - Уведомления
+      summary: Отделы группового чата
+      description: '`departmentIds: null` - все платежи, список - только платежи этих отделов (платежи
+        без отдела в такой чат не приходят). Только администратор.'
+      operationId: update_group_chat
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupChatUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupChat'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Уведомления
+      summary: Отключить групповой чат
+      description: Ожидающие напоминания чата отменяются; бот остаётся в группе, но больше ей не пишет.
+        Только администратор.
+      operationId: delete_group_chat
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Объект не найден (`not_found`, в `payload` - `entity` и `id`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/audit-log:
+    get:
+      tags:
+      - Журнал действий
+      summary: Журнал действий
+      description: 'Кто и что менял: платежи, оплаты, участники, отделы, чаты, входы. Новые записи сверху.
+        `action` - действие точно или группа по префиксу (`auth.*`, `member.*`). Только администратор.'
+      operationId: list_audit_log
+      security:
+      - bearer: []
+      - X-API-KEY: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Сколько элементов вернуть
+          default: 50
+          title: Limit
+        description: Сколько элементов вернуть
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Сколько элементов пропустить
+          default: 0
+          title: Offset
+        description: Сколько элементов пропустить
+      - name: action
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          description: Действие точно (`payment.updated`) или группа по префиксу (`auth.*`)
+          examples:
+          - member.*
+          title: Action
+        description: Действие точно (`payment.updated`) или группа по префиксу (`auth.*`)
+      - name: entity
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          examples:
+          - payment
+          title: Entity
+      - name: entityId
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Entityid
+      - name: actorLogin
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          description: Кто сделал, без учёта регистра
+          title: Actorlogin
+        description: Кто сделал, без учёта регистра
+      - name: from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          description: Не раньше
+          title: From
+        description: Не раньше
+      - name: to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          description: Не позже
+          title: To
+        description: Не позже
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_AuditEntry_'
+        '400':
+          description: 'Ошибка проверки данных: список полей в `payload`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/settings:
+    get:
+      tags:
+      - Система
+      summary: Настройки системы
+      description: 'Серверное сегодня и окно напоминаний: по ним панель считает сроки. Доступно всем ролям.'
+      operationId: get_settings
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSettings'
+        '401':
+          description: Нет действующего токена (`not_auth`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer: []
+      - X-API-KEY: []
+components:
+  schemas:
+    AuditEntry:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        at:
+          type: string
+          format: date-time
+          title: At
+        actorLogin:
+          type: string
+          title: Actorlogin
+          examples:
+          - glavbuh@company.ru
+        action:
+          type: string
+          title: Action
+          examples:
+          - payment.updated
+        entity:
+          type: string
+          title: Entity
+          examples:
+          - payment
+        entityId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entityid
+        entityName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entityname
+          description: Название на момент действия; null у старых записей
+          examples:
+          - Аренда офиса
+        details:
+          additionalProperties: true
+          type: object
+          title: Details
+          description: Подробности, ключи в camelCase
+      type: object
+      required:
+      - id
+      - at
+      - actorLogin
+      - action
+      - entity
+      - entityId
+      - entityName
+      - details
+      title: AuditEntry
+    Currency:
+      type: string
+      enum:
+      - RUB
+      - USD
+      - EUR
+      title: Currency
+    CurrencyTotals:
+      properties:
+        currency:
+          $ref: '#/components/schemas/Currency'
+        totalMinor:
+          type: integer
+          minimum: 0.0
+          title: Totalminor
+          examples:
+          - 15000000
+        paidMinor:
+          type: integer
+          minimum: 0.0
+          title: Paidminor
+          examples:
+          - 0
+        unpaidMinor:
+          type: integer
+          minimum: 0.0
+          title: Unpaidminor
+          examples:
+          - 15000000
+        overdueMinor:
+          type: integer
+          minimum: 0.0
+          title: Overdueminor
+          description: Часть неоплаченного
+          examples:
+          - 0
+        count:
+          type: integer
+          minimum: 0.0
+          title: Count
+          description: Сколько периодов
+          examples:
+          - 1
+        paidCount:
+          type: integer
+          minimum: 0.0
+          title: Paidcount
+          description: Сколько оплачено
+          examples:
+          - 0
+        unpaidCount:
+          type: integer
+          minimum: 0.0
+          title: Unpaidcount
+          description: Сколько не оплачено
+          examples:
+          - 1
+        overdueCount:
+          type: integer
+          minimum: 0.0
+          title: Overduecount
+          description: Сколько просрочено, часть неоплаченных
+          examples:
+          - 1
+        plannedMinor:
+          type: integer
+          minimum: 0.0
+          title: Plannedminor
+          description: Сумма плановых периодов, только с includePlanned
+          default: 0
+        plannedCount:
+          type: integer
+          minimum: 0.0
+          title: Plannedcount
+          description: Сколько плановых периодов
+          default: 0
+      type: object
+      required:
+      - currency
+      - totalMinor
+      - paidMinor
+      - unpaidMinor
+      - overdueMinor
+      - count
+      - paidCount
+      - unpaidCount
+      - overdueCount
+      title: CurrencyTotals
+    CurrentUser:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          examples:
+          - 2f6c4a1e-8d3b-4c5a-9e7f-1a2b3c4d5e6f
+        email:
+          type: string
+          title: Email
+          examples:
+          - buh.petrova@company.ru
+        role:
+          $ref: '#/components/schemas/Role'
+          description: 'Роль: администратор, пользователь или внешняя система'
+      type: object
+      required:
+      - id
+      - email
+      - role
+      title: CurrentUser
+    Department:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          examples:
+          - 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+          examples:
+          - Офис
+        paymentsCount:
+          type: integer
+          minimum: 0.0
+          title: Paymentscount
+          description: Сколько действующих платежей
+          examples:
+          - 2
+      type: object
+      required:
+      - id
+      - name
+      - paymentsCount
+      title: Department
+    DepartmentRef:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          examples:
+          - 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+        name:
+          type: string
+          title: Name
+          examples:
+          - Офис
+      type: object
+      required:
+      - id
+      - name
+      title: DepartmentRef
+      description: Отдел внутри других ответов.
+    DepartmentWrite:
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+          examples:
+          - Офис
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      title: DepartmentWrite
+      examples:
+      - name: Офис
+    ErrorResponse:
+      properties:
+        statusCode:
+          type: integer
+          title: Statuscode
+          examples:
+          - 400
+        message:
+          type: string
+          title: Message
+          examples:
+          - Проверьте введённые данные
+        error:
+          type: string
+          title: Error
+          examples:
+          - bad_request
+        timestamp:
+          type: string
+          title: Timestamp
+          examples:
+          - '2026-10-24T14:09:29.458Z'
+        path:
+          type: string
+          title: Path
+          examples:
+          - /api/v1/recurring-payments
+        payload:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FieldError'
+            type: array
+          - additionalProperties: true
+            type: object
+          - type: string
+          title: Payload
+          description: Список полей для 400, `{entity, id}` для 404, иначе текст ошибки
+        requestId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Requestid
+          description: Совпадает с заголовком X-Request-ID
+      type: object
+      required:
+      - statusCode
+      - message
+      - error
+      - timestamp
+      - path
+      - payload
+      title: ErrorResponse
+      description: 'Ответ с ошибкой как у Aéza v2: `error` для программы, `message` для человека.'
+    FieldError:
+      properties:
+        field:
+          type: string
+          title: Field
+          examples:
+          - nextDueDate
+        message:
+          type: string
+          title: Message
+          examples:
+          - Дата ближайшей оплаты не может быть раньше сегодняшней
+      type: object
+      required:
+      - field
+      - message
+      title: FieldError
+    GroupChat:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        title:
+          type: string
+          title: Title
+          description: Название группы в Telegram
+          examples:
+          - Бухгалтерия
+        threadId:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Threadid
+          description: Тема супергруппы; null - сообщения без темы
+          examples:
+          - 7
+        topicName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Topicname
+          description: Название темы
+          examples:
+          - Аренда
+        departmentIds:
+          anyOf:
+          - items:
+              type: string
+              format: uuid
+            type: array
+          - type: 'null'
+          title: Departmentids
+          description: Отделы, по платежам которых приходят напоминания; null - все платежи
+        blocked:
+          type: boolean
+          title: Blocked
+          description: 'Бота удалили из группы: напоминания не идут до повторного подключения'
+          examples:
+          - false
+        linkedAt:
+          type: string
+          format: date-time
+          title: Linkedat
+          description: Когда группа подключена
+      type: object
+      required:
+      - id
+      - title
+      - threadId
+      - topicName
+      - departmentIds
+      - blocked
+      - linkedAt
+      title: GroupChat
+      description: 'Подключение группы: без темы или к одной теме супергруппы.'
+    GroupChatLink:
+      properties:
+        url:
+          type: string
+          title: Url
+          description: 'Добавить бота в группу: сообщения пойдут без темы'
+          examples:
+          - https://t.me/invoice_keeper_bot?startgroup=Zx81kQ
+        command:
+          type: string
+          title: Command
+          description: 'Отправить в теме группы, где бот уже есть: подключит эту тему'
+          examples:
+          - /start@invoice_keeper_bot Zx81kQ
+        expiresAt:
+          type: string
+          format: date-time
+          title: Expiresat
+          description: Когда код перестанет действовать
+      type: object
+      required:
+      - url
+      - command
+      - expiresAt
+      title: GroupChatLink
+    GroupChatUpdate:
+      properties:
+        departmentIds:
+          anyOf:
+          - items:
+              type: string
+              format: uuid
+            type: array
+            maxItems: 100
+            minItems: 1
+          - type: 'null'
+          title: Departmentids
+          description: null - все платежи, список - только платежи этих отделов
+      additionalProperties: false
+      type: object
+      required:
+      - departmentIds
+      title: GroupChatUpdate
+      examples:
+      - {}
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LoginChallengeResponse:
+      properties:
+        challenge:
+          type: string
+          title: Challenge
+          description: Передайте в `POST /auth/use-challenge` или `tfa/totp`
+        requirements:
+          items:
+            type: string
+          type: array
+          title: Requirements
+          description: Пусто - 2FA не нужна, иначе нужен код в `POST /auth/tfa/totp`
+          examples:
+          - []
+      type: object
+      required:
+      - challenge
+      - requirements
+      title: LoginChallengeResponse
+      description: Ответ Aéza на шаг 1 как есть.
+    LoginRequest:
+      properties:
+        email:
+          type: string
+          maxLength: 255
+          pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
+          title: Email
+          description: Email аккаунта Aéza
+          examples:
+          - buh.petrova@company.ru
+        password:
+          type: string
+          maxLength: 256
+          minLength: 1
+          format: password
+          title: Password
+          description: Пароль аккаунта Aéza
+          writeOnly: true
+      additionalProperties: false
+      type: object
+      required:
+      - email
+      - password
+      title: LoginRequest
+      examples:
+      - email: glavbuh@company.ru
+        password: пароль от аккаунта Aéza
+    MemberRole:
+      type: string
+      enum:
+      - user
+      - integration
+      title: MemberRole
+      description: Роль, которую администратор может выдать через панель.
+    MonthTotals:
+      properties:
+        month:
+          type: string
+          title: Month
+          description: Месяц ГГГГ-ММ
+          examples:
+          - 2026-10
+        currencies:
+          items:
+            $ref: '#/components/schemas/CurrencyTotals'
+          type: array
+          title: Currencies
+      type: object
+      required:
+      - month
+      - currencies
+      title: MonthTotals
+    OccurrenceStatus:
+      type: string
+      enum:
+      - paid
+      - unpaid
+      - overdue
+      title: OccurrenceStatus
+    Page_AuditEntry_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/AuditEntry'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          examples:
+          - 1
+      type: object
+      required:
+      - items
+      - total
+      title: Page[AuditEntry]
+    Page_Department_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Department'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          examples:
+          - 1
+      type: object
+      required:
+      - items
+      - total
+      title: Page[Department]
+    Page_GroupChat_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/GroupChat'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          examples:
+          - 1
+      type: object
+      required:
+      - items
+      - total
+      title: Page[GroupChat]
+    Page_PaymentOccurrence_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/PaymentOccurrence'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          examples:
+          - 1
+      type: object
+      required:
+      - items
+      - total
+      title: Page[PaymentOccurrence]
+    Page_PlannedOccurrence_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/PlannedOccurrence'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          examples:
+          - 1
+      type: object
+      required:
+      - items
+      - total
+      title: Page[PlannedOccurrence]
+    Page_RecurringPayment_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/RecurringPayment'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          examples:
+          - 1
+      type: object
+      required:
+      - items
+      - total
+      title: Page[RecurringPayment]
+    Page_User_:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/User'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          examples:
+          - 1
+      type: object
+      required:
+      - items
+      - total
+      title: Page[User]
+    PaymentOccurrence:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          examples:
+          - 7e6d5c4b-3a29-4180-9f8e-7d6c5b4a3928
+        recurringPayment:
+          $ref: '#/components/schemas/PaymentRef'
+        department:
+          anyOf:
+          - $ref: '#/components/schemas/DepartmentRef'
+          - type: 'null'
+        dueDate:
+          type: string
+          format: date
+          title: Duedate
+          examples:
+          - '2026-11-05'
+        amountMinor:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amountminor
+          description: 'Сумма в минимальных единицах валюты: копейках или центах'
+          examples:
+          - 15000000
+        currency:
+          $ref: '#/components/schemas/Currency'
+          examples:
+          - RUB
+        paid:
+          type: boolean
+          title: Paid
+          examples:
+          - false
+        paidOn:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paidon
+          description: Фактическая дата оплаты
+          examples:
+          - null
+        paidByLogin:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Paidbylogin
+          examples:
+          - null
+        overdue:
+          type: boolean
+          title: Overdue
+          description: Просрочен сейчас или оплачен с опозданием
+        daysOverdue:
+          type: integer
+          minimum: 0.0
+          title: Daysoverdue
+          description: 0, если просрочки нет
+          examples:
+          - 0
+        reminderSentAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Remindersentat
+          description: Когда ушло последнее напоминание о периоде
+      type: object
+      required:
+      - id
+      - recurringPayment
+      - department
+      - dueDate
+      - amountMinor
+      - currency
+      - paid
+      - paidOn
+      - paidByLogin
+      - overdue
+      - daysOverdue
+      title: PaymentOccurrence
+      examples:
+      - amountMinor: 15000000
+        currency: RUB
+        daysOverdue: 19
+        department:
+          id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+          name: Офис
+        dueDate: '2026-10-05'
+        id: 7e6d5c4b-3a29-4180-9f8e-7d6c5b4a3928
+        overdue: true
+        paid: false
+        recurringPayment:
+          id: 3c2b1a09-8f7e-4d6c-9b5a-4f3e2d1c0b9a
+          name: Аренда офиса
+          stopped: false
+    PaymentOccurrenceUpdate:
+      properties:
+        paid:
+          type: boolean
+          title: Paid
+          description: true - отметить оплату или исправить дату, false - отменить
+        paidOn:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paidon
+          description: Фактическая дата, не позже сегодня; без неё - сегодня
+      additionalProperties: false
+      type: object
+      required:
+      - paid
+      title: PaymentOccurrenceUpdate
+      examples:
+      - paid: true
+    PaymentRef:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          examples:
+          - 3c2b1a09-8f7e-4d6c-9b5a-4f3e2d1c0b9a
+        name:
+          type: string
+          title: Name
+          examples:
+          - Аренда офиса
+        stopped:
+          type: boolean
+          title: Stopped
+          description: Платёж прекращён
+          examples:
+          - false
+      type: object
+      required:
+      - id
+      - name
+      - stopped
+      title: PaymentRef
+    PaymentsSummary:
+      properties:
+        from:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: From
+        to:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: To
+        departmentId:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: string
+            const: none
+          - type: 'null'
+          title: Departmentid
+        asOf:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Asof
+        months:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/MonthTotals'
+            type: array
+          - type: 'null'
+          title: Months
+          description: Только с groupBy=month, по месяцам от from до to
+        currencies:
+          items:
+            $ref: '#/components/schemas/CurrencyTotals'
+          type: array
+          title: Currencies
+          description: 'Всегда три элемента: RUB, USD, EUR; суммы не складываются между валютами'
+      type: object
+      required:
+      - from
+      - to
+      - departmentId
+      - currencies
+      title: PaymentsSummary
+      examples:
+      - currencies:
+        - count: 1
+          currency: RUB
+          overdueCount: 1
+          overdueMinor: 15000000
+          paidCount: 0
+          paidMinor: 0
+          totalMinor: 15000000
+          unpaidCount: 1
+          unpaidMinor: 15000000
+        - count: 1
+          currency: USD
+          overdueCount: 0
+          overdueMinor: 0
+          paidCount: 1
+          paidMinor: 2500
+          totalMinor: 2500
+          unpaidCount: 0
+          unpaidMinor: 0
+        - count: 1
+          currency: EUR
+          overdueCount: 0
+          overdueMinor: 0
+          paidCount: 0
+          paidMinor: 0
+          totalMinor: 1299
+          unpaidCount: 1
+          unpaidMinor: 1299
+        from: '2026-10-01'
+        to: '2026-10-31'
+    Period:
+      type: string
+      enum:
+      - day
+      - week
+      - month
+      - year
+      title: Period
+    PlannedOccurrence:
+      properties:
+        recurringPayment:
+          $ref: '#/components/schemas/PaymentRef'
+        department:
+          anyOf:
+          - $ref: '#/components/schemas/DepartmentRef'
+          - type: 'null'
+        dueDate:
+          type: string
+          format: date
+          title: Duedate
+          examples:
+          - '2027-01-05'
+        amountMinor:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amountminor
+          description: 'Сумма в минимальных единицах валюты: копейках или центах'
+          examples:
+          - 15000000
+        currency:
+          $ref: '#/components/schemas/Currency'
+          examples:
+          - RUB
+      type: object
+      required:
+      - recurringPayment
+      - department
+      - dueDate
+      - amountMinor
+      - currency
+      title: PlannedOccurrence
+      description: Будущий период по расписанию; в базе его ещё нет, отметить оплату нельзя.
+    RecurringPayment:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          examples:
+          - 3c2b1a09-8f7e-4d6c-9b5a-4f3e2d1c0b9a
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+          examples:
+          - Аренда офиса
+        amountMinor:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amountminor
+          description: 'Сумма в минимальных единицах валюты: копейках или центах'
+          examples:
+          - 15000000
+        currency:
+          $ref: '#/components/schemas/Currency'
+          examples:
+          - RUB
+        period:
+          $ref: '#/components/schemas/Period'
+          description: 'Единица повторения: day, week, month или year'
+        periodCount:
+          type: integer
+          maximum: 366.0
+          minimum: 1.0
+          title: Periodcount
+          description: 'Каждые N единиц period: month и 3 - раз в квартал, day и 10 - каждые 10 дней'
+          examples:
+          - 1
+        occurrenceLimit:
+          anyOf:
+          - type: integer
+            maximum: 1000.0
+            minimum: 1.0
+            description: Сколько раз оплатить; после этого периоды не создаются. null - бессрочно
+            examples:
+            - 4
+          - type: 'null'
+          title: Occurrencelimit
+        paidOccurrences:
+          type: integer
+          minimum: 0.0
+          title: Paidoccurrences
+          description: Сколько периодов уже оплачено
+          examples:
+          - 3
+        completed:
+          type: boolean
+          title: Completed
+          description: Все оплаты по occurrenceLimit сделаны; у бессрочного всегда false
+          examples:
+          - false
+        anchorDay:
+          type: integer
+          maximum: 31.0
+          minimum: 1.0
+          title: Anchorday
+          description: Число месяца, от которого считается срок у month и year; если такого числа нет
+            - последний день месяца
+        nextDueDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Nextduedate
+          description: Ближайший неоплаченный срок не раньше сегодня; null у прекращённого платежа и когда
+            ближайший будущий период уже оплачен заранее
+          examples:
+          - '2026-11-05'
+        overdueCount:
+          type: integer
+          minimum: 0.0
+          title: Overduecount
+          description: Сколько периодов просрочено сейчас
+          examples:
+          - 1
+        oldestOverdueDays:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Oldestoverduedays
+          description: Дней просрочки у самого старого неоплаченного периода; null - просрочки нет
+          examples:
+          - 19
+        department:
+          anyOf:
+          - $ref: '#/components/schemas/DepartmentRef'
+          - type: 'null'
+        stoppedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Stoppedat
+          description: null - платёж действует
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+        createdByLogin:
+          type: string
+          title: Createdbylogin
+          examples:
+          - admin
+      type: object
+      required:
+      - id
+      - name
+      - amountMinor
+      - currency
+      - period
+      - periodCount
+      - occurrenceLimit
+      - paidOccurrences
+      - completed
+      - anchorDay
+      - nextDueDate
+      - overdueCount
+      - oldestOverdueDays
+      - department
+      - stoppedAt
+      - createdAt
+      - createdByLogin
+      title: RecurringPayment
+      examples:
+      - amountMinor: 15000000
+        anchorDay: 5
+        completed: false
+        createdAt: '2026-10-01T09:00:00Z'
+        createdByLogin: admin
+        currency: RUB
+        department:
+          id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+          name: Офис
+        id: 3c2b1a09-8f7e-4d6c-9b5a-4f3e2d1c0b9a
+        name: Аренда офиса
+        nextDueDate: '2026-11-05'
+        oldestOverdueDays: 19
+        overdueCount: 1
+        paidOccurrences: 3
+        period: month
+        periodCount: 1
+    RecurringPaymentCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+          examples:
+          - Аренда офиса
+        amountMinor:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Amountminor
+          description: 'Сумма в минимальных единицах валюты: копейках или центах'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        period:
+          $ref: '#/components/schemas/Period'
+          default: month
+        periodCount:
+          type: integer
+          maximum: 366.0
+          minimum: 1.0
+          title: Periodcount
+          description: 'Каждые N единиц period: month и 3 - раз в квартал, day и 10 - каждые 10 дней'
+          default: 1
+          examples:
+          - 1
+        occurrenceLimit:
+          anyOf:
+          - type: integer
+            maximum: 1000.0
+            minimum: 1.0
+            description: Сколько раз оплатить; после этого периоды не создаются. null - бессрочно
+            examples:
+            - 4
+          - type: 'null'
+          title: Occurrencelimit
+        nextDueDate:
+          type: string
+          format: date
+          title: Nextduedate
+          description: Дата ближайшей оплаты, не раньше сегодня
+        departmentId:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Departmentid
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - amountMinor
+      - currency
+      - nextDueDate
+      title: RecurringPaymentCreate
+      examples:
+      - amountMinor: 15000000
+        currency: RUB
+        name: Аренда офиса
+        nextDueDate: '2026-11-05'
+        period: month
+        periodCount: 1
+    RecurringPaymentResume:
+      properties:
+        nextDueDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Nextduedate
+          description: С какой даты продолжить, не раньше сегодня; без неё - следующий срок прежнего расписания
+      additionalProperties: false
+      type: object
+      title: RecurringPaymentResume
+      examples:
+      - nextDueDate: '2026-11-05'
+    RecurringPaymentStatus:
+      type: string
+      enum:
+      - active
+      - stopped
+      title: RecurringPaymentStatus
+    RecurringPaymentUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+            examples:
+            - Аренда офиса
+          - type: 'null'
+          title: Name
+        amountMinor:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0.0
+            description: 'Сумма в минимальных единицах валюты: копейках или центах'
+          - type: 'null'
+          title: Amountminor
+        currency:
+          anyOf:
+          - $ref: '#/components/schemas/Currency'
+          - type: 'null'
+        period:
+          anyOf:
+          - $ref: '#/components/schemas/Period'
+          - type: 'null'
+        periodCount:
+          anyOf:
+          - type: integer
+            maximum: 366.0
+            minimum: 1.0
+            description: 'Каждые N единиц period: month и 3 - раз в квартал, day и 10 - каждые 10 дней'
+            examples:
+            - 1
+          - type: 'null'
+          title: Periodcount
+        occurrenceLimit:
+          anyOf:
+          - type: integer
+            maximum: 1000.0
+            minimum: 1.0
+            description: Сколько раз оплатить; после этого периоды не создаются. null - бессрочно
+            examples:
+            - 4
+          - type: 'null'
+          title: Occurrencelimit
+          description: Сколько раз оплатить всего; null - снять ограничение. Не меньше, чем уже оплаченных
+            и просроченных периодов
+        nextDueDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Nextduedate
+          description: Новая дата ближайшей оплаты, не раньше сегодня
+        departmentId:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Departmentid
+          description: null снимает отдел
+      additionalProperties: false
+      type: object
+      title: RecurringPaymentUpdate
+      description: 'Меняет только неоплаченные периоды со сроком сегодня или позже.
+
+
+        Смена периода без новой даты продолжает расписание с ближайшего неоплаченного срока.'
+      examples:
+      - amountMinor: 16000000
+    Role:
+      type: string
+      enum:
+      - admin
+      - user
+      - integration
+      title: Role
+    SessionResponse:
+      properties:
+        session:
+          type: string
+          title: Session
+          description: 'Токен сессии для `Authorization: Bearer`'
+        expiresAt:
+          type: string
+          format: date-time
+          title: Expiresat
+          description: Когда сессия закончится; продления нет
+      type: object
+      required:
+      - session
+      - expiresAt
+      title: SessionResponse
+    SortOrder:
+      type: string
+      enum:
+      - asc
+      - desc
+      title: SortOrder
+    SystemSettings:
+      properties:
+        today:
+          type: string
+          format: date
+          title: Today
+          description: 'Сегодня в часовом поясе системы: от него считаются сроки'
+        timezone:
+          type: string
+          title: Timezone
+          examples:
+          - Europe/Moscow
+        reminderDaysBefore:
+          type: integer
+          title: Reminderdaysbefore
+          description: За сколько дней до срока приходит напоминание
+          examples:
+          - 3
+      type: object
+      required:
+      - today
+      - timezone
+      - reminderDaysBefore
+      title: SystemSettings
+    TelegramLink:
+      properties:
+        url:
+          type: string
+          title: Url
+          description: Ссылка на бота с одноразовым кодом
+          examples:
+          - https://t.me/invoice_keeper_bot?start=Zx81kQ
+        expiresAt:
+          type: string
+          format: date-time
+          title: Expiresat
+          description: Когда ссылка перестанет действовать
+      type: object
+      required:
+      - url
+      - expiresAt
+      title: TelegramLink
+    TelegramSettingsUpdate:
+      properties:
+        personalEnabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Personalenabled
+        departmentIds:
+          anyOf:
+          - items:
+              type: string
+              format: uuid
+            type: array
+            maxItems: 100
+            minItems: 1
+          - type: 'null'
+          title: Departmentids
+          description: null - все платежи, список - только платежи этих отделов
+      additionalProperties: false
+      type: object
+      title: TelegramSettingsUpdate
+      description: Меняются только переданные поля; хотя бы одно обязательно.
+      examples:
+      - personalEnabled: true
+    TelegramStatus:
+      properties:
+        linked:
+          type: boolean
+          title: Linked
+          description: Привязан ли личный чат
+          examples:
+          - true
+        telegramUsername:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Telegramusername
+          examples:
+          - ivanova_buh
+        personalEnabled:
+          type: boolean
+          title: Personalenabled
+          description: Присылать ли напоминания лично
+          examples:
+          - true
+        blocked:
+          type: boolean
+          title: Blocked
+          description: Пользователь заблокировал бота
+          examples:
+          - false
+        groupChatConfigured:
+          type: boolean
+          title: Groupchatconfigured
+          description: Есть ли общий чат из настроек или подключённая группа
+          examples:
+          - true
+        departmentIds:
+          anyOf:
+          - items:
+              type: string
+              format: uuid
+            type: array
+          - type: 'null'
+          title: Departmentids
+          description: Отделы, по платежам которых приходят личные напоминания; null - все платежи
+        telegramName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Telegramname
+          description: Имя в Telegram
+          examples:
+          - Ирина
+        botConfigured:
+          type: boolean
+          title: Botconfigured
+          description: Настроен ли бот в системе; false - привязка недоступна
+          examples:
+          - true
+      type: object
+      required:
+      - linked
+      - telegramUsername
+      - personalEnabled
+      - blocked
+      - groupChatConfigured
+      - departmentIds
+      - telegramName
+      - botConfigured
+      title: TelegramStatus
+      examples:
+      - blocked: false
+        botConfigured: true
+        groupChatConfigured: true
+        linked: true
+        personalEnabled: true
+        telegramName: Ирина
+        telegramUsername: ivanova_buh
+    TotpRequest:
+      properties:
+        challenge:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Challenge
+        code:
+          type: string
+          maxLength: 16
+          minLength: 1
+          title: Code
+          description: Код 2FA
+          examples:
+          - '123456'
+      additionalProperties: false
+      type: object
+      required:
+      - challenge
+      - code
+      title: TotpRequest
+    UseChallengeRequest:
+      properties:
+        challenge:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Challenge
+      additionalProperties: false
+      type: object
+      required:
+      - challenge
+      title: UseChallengeRequest
+    User:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          examples:
+          - 5b1d2c3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e
+        email:
+          type: string
+          title: Email
+          examples:
+          - buh.petrova@company.ru
+        role:
+          $ref: '#/components/schemas/Role'
+        enabled:
+          type: boolean
+          title: Enabled
+          description: Может ли участник входить
+          examples:
+          - true
+        editable:
+          type: boolean
+          title: Editable
+          description: 'false - администратор из настроек: панель его не меняет и не удаляет'
+          examples:
+          - true
+        linked:
+          type: boolean
+          title: Linked
+          description: Участник уже входил, аккаунт Aéza привязан
+          examples:
+          - true
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+        lastLoginAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Lastloginat
+        lastSeenAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Lastseenat
+          description: Последний вход или запрос по X-API-KEY, с точностью до минуты
+      type: object
+      required:
+      - id
+      - email
+      - role
+      - enabled
+      - editable
+      - linked
+      - createdAt
+      - lastLoginAt
+      - lastSeenAt
+      title: User
+      description: Участник белого списка.
+    UserCreate:
+      properties:
+        email:
+          type: string
+          maxLength: 255
+          pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
+          title: Email
+          description: Email аккаунта Aéza
+          examples:
+          - buh.petrova@company.ru
+        role:
+          $ref: '#/components/schemas/MemberRole'
+          default: user
+      additionalProperties: false
+      type: object
+      required:
+      - email
+      title: UserCreate
+      examples:
+      - email: buh.petrova@company.ru
+        role: user
+    UserUpdate:
+      properties:
+        role:
+          anyOf:
+          - $ref: '#/components/schemas/MemberRole'
+          - type: 'null'
+        enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enabled
+      additionalProperties: false
+      type: object
+      title: UserUpdate
+      examples:
+      - enabled: false
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    bearer:
+      type: http
+      description: '`session` из `POST /auth/use-challenge` или `tfa/totp`, без слова Bearer.'
+      scheme: bearer
+    X-API-KEY:
+      type: apiKey
+      description: Ключ аккаунта Aéza из кабинета ("API ключи") для других систем.
+      in: header
+      name: X-API-KEY
+tags:
+- name: Вход
+  description: Вход аккаунтом Aéza, текущий участник и выход.
+- name: Регулярные платежи
+  description: 'Что и когда платить: сумма, валюта, срок.'
+- name: Периоды оплаты
+  description: 'Конкретные сроки платежей: отметка и отмена оплаты, просрочка.'
+- name: Итоги
+  description: Суммы по валютам, бюджет по месяцам и плановые периоды.
+- name: Отделы
+  description: Необязательная группировка платежей.
+- name: Пользователи
+  description: Белый список аккаунтов Aéza и роли.
+- name: Уведомления
+  description: Личный Telegram пользователя и групповые чаты для напоминаний.
+- name: Журнал действий
+  description: Кто и что менял в системе.
+- name: Система
+  description: Настройки, нужные панели.

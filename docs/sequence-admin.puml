@@ -1,0 +1,114 @@
+@startuml "admin"
+title Invoice Keeper — сценарий администратора
+
+autonumber
+hide footbox
+
+actor "Администратор" as Admin
+participant "Веб-панель" as Frontend
+participant "REST API\n/api/v1" as API
+database "База данных" as DB
+participant "API Aéza" as Aeza
+
+== Вход в систему ==
+
+Admin -> Frontend: Открыть веб-панель
+Frontend --> Admin: Показать форму входа
+Admin -> Frontend: Ввести email и пароль\nаккаунта Aéza
+Frontend -> API: POST /auth/login
+API -> API: Проверить пределы\nнеудачных входов
+API -> Aeza: POST /v2/auth/login
+Aeza --> API: challenge
+opt Включена 2FA
+    API --> Frontend: Нужен код 2FA
+    Admin -> Frontend: Ввести код
+    Frontend -> API: POST /auth/tfa
+end
+API -> Aeza: Обменять challenge на сессию
+API -> Aeza: GET /v2/accounts/me
+API -> Aeza: Закрыть сессию Aéza
+API -> DB: Найти участника в белом списке,\nсоздать свою сессию
+API --> Frontend: Токен сессии, роль admin
+
+== Просмотр платежей ==
+
+Admin -> Frontend: Открыть список платежей
+Frontend -> API: Запросить список платежей\nAuthorization: Bearer <token>
+API -> API: Проверить токен и роль
+
+alt Доступ разрешён
+    API -> DB: Получить платежи и периоды
+    DB --> API: Платежи, сроки и статусы
+    API -> API: Определить просрочки\nи итоги по валютам
+    API --> Frontend: Список платежей и итоги
+    Frontend --> Admin: Показать список платежей
+else Токен недействителен
+    API --> Frontend: 401 Unauthorized
+    Frontend --> Admin: Предложить повторный вход
+end
+
+== Управление регулярным платежом ==
+
+Admin -> Frontend: Создать, изменить\nили удалить платёж
+Frontend -> API: Отправить изменение\nAuthorization: Bearer <token>
+API -> API: Проверить токен\nи роль администратора
+
+alt Доступ разрешён
+    alt Создание платежа
+        API -> DB: В одной транзакции:\nсохранить платёж,\nсоздать периоды до ближайшего будущего,\nпоставить напоминание в очередь,\nесли до срока 3 дня или меньше,\nзаписать действие в журнал
+        DB --> API: Платёж создан
+        API --> Frontend: Изменение сохранено
+    else Изменение платежа
+        API -> DB: В одной транзакции:\nобновить платёж,\nпересчитать неоплаченные периоды\nсо сроком сегодня или позже,\nпоставить напоминание, если срок в окне,\nзаписать старые и новые значения в журнал
+        DB --> API: Платёж обновлён
+        API --> Frontend: Изменение сохранено
+    else Прекращение платежа
+        API -> DB: В одной транзакции:\nотметить платёж прекращённым,\nудалить будущие неоплаченные периоды,\nотменить их запланированные напоминания,\nзаписать действие в журнал
+        DB --> API: Платёж прекращён, история сохранена
+        API --> Frontend: Изменение сохранено
+    end
+
+    Frontend --> Admin: Показать актуальный список
+else Недостаточно прав
+    API --> Frontend: 403 Forbidden
+    Frontend --> Admin: Сообщить об отсутствии прав
+end
+
+== Управление пользователями ==
+
+Admin -> Frontend: Добавить, изменить\nили удалить участника
+Frontend -> API: Отправить изменение\nAuthorization: Bearer <token>
+API -> API: Проверить токен\nи роль администратора
+
+alt Доступ разрешён
+    alt Цель - администратор из .env
+        API --> Frontend: 409 Conflict
+        Frontend --> Admin: Сообщить, что администратора\nменяют только в .env
+    else Обычный пользователь
+        API -> DB: Изменить белый список\n(email аккаунта Aéza и роль)
+        opt Отключение или удаление
+            API -> DB: Удалить все сессии участника
+        end
+        API -> DB: Записать действие в журнал
+        API --> Frontend: Изменение сохранено
+        Frontend --> Admin: Показать актуальный список
+    end
+else Недостаточно прав
+    API --> Frontend: 403 Forbidden
+    Frontend --> Admin: Сообщить об отсутствии прав
+end
+
+note over API, DB
+  Суммы RUB, USD и EUR рассчитываются отдельно,
+  без конвертации валют.
+  Оплаченные и просроченные периоды
+  изменение платежа не трогает.
+end note
+
+note over Admin, Aeza
+  Администраторы - email из ADMIN_EMAILS в .env:
+  backend синхронизирует их в белый список при каждом
+  запуске. Пароли хранит только Aéza.
+end note
+
+@enduml

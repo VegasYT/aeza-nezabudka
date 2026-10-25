@@ -1,0 +1,265 @@
+/* Таблица прижата к краям острова, отступы задают ячейки. */
+.island {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+.head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: rem(10px) var(--mantine-spacing-md);
+	padding: rem(14px) rem(14px) rem(12px) rem(18px);
+}
+
+.filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: rem(8px);
+}
+
+/* На телефоне фильтры в ряд над островом, лишнее уходит в прокрутку. */
+
+/* На телефоне «Действие» и «Кто» в одну строку, период под ними на всю ширину. */
+.filtersRow {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: rem(6px);
+	padding: rem(2px) rem(2px) rem(6px);
+}
+
+.actionFilter {
+	width: rem(200px);
+}
+
+.actorFilter {
+	width: rem(240px);
+}
+
+.filtersRow .actionFilter,
+.filtersRow .actorFilter {
+	width: auto;
+}
+
+.periodFilter {
+	min-width: rem(230px);
+	font-variant-numeric: tabular-nums;
+}
+
+.filtersRow .periodFilter {
+	grid-column: 1 / -1;
+	min-width: 0;
+}
+
+.count {
+	padding-bottom: rem(9px);
+	font-variant-numeric: tabular-nums;
+}
+
+.skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: rem(14px);
+	padding: rem(18px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.tableBox {
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.table {
+	--table-border-color: var(--nz-line);
+
+	min-width: rem(980px);
+	font-size: var(--mantine-font-size-md);
+
+	& th {
+		color: var(--nz-ink-3);
+		font-size: var(--mantine-font-size-xs);
+		font-weight: 600;
+	}
+
+	& td {
+		vertical-align: top;
+	}
+
+	& th:first-child,
+	& td:first-child {
+		padding-left: rem(18px);
+	}
+
+	& th:last-child,
+	& td:last-child {
+		padding-right: rem(18px);
+	}
+}
+
+.timeColumn {
+	width: rem(72px);
+}
+
+.day {
+	padding-top: rem(14px);
+
+	&:is(th) {
+		color: var(--nz-ink-2);
+		font-weight: 700;
+	}
+}
+
+.time {
+	color: var(--nz-ink-2);
+	font-variant-numeric: tabular-nums;
+}
+
+.actor {
+	color: var(--nz-ink-2);
+	overflow-wrap: anywhere;
+}
+
+.action {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(9px);
+	font-weight: 600;
+}
+
+.icon {
+	flex: none;
+	color: var(--nz-ink-3);
+}
+
+.iconPaid {
+	flex: none;
+	color: var(--nz-status-paid-ink);
+}
+
+.iconUnpaid {
+	flex: none;
+	color: var(--nz-status-overdue-ink);
+}
+
+.object {
+	display: flex;
+	flex-direction: column;
+	gap: rem(2px);
+	overflow-wrap: anywhere;
+}
+
+.numbers {
+	font-variant-numeric: tabular-nums;
+}
+
+.details {
+	color: var(--nz-ink-2);
+	font-variant-numeric: tabular-nums;
+}
+
+.dash {
+	color: var(--nz-ink-4);
+}
+
+.hint,
+.hintButton {
+	cursor: help;
+	border-radius: rem(2px);
+	text-decoration: underline dotted var(--nz-ink-4);
+	text-underline-offset: rem(3px);
+}
+
+.hint:focus-visible {
+	outline: 2px solid var(--nz-focus);
+	outline-offset: 2px;
+}
+
+/* Строка остаётся строкой, а цель нажатия растёт до 44 px без сдвига карточки. */
+.hintButton {
+	position: relative;
+	font: inherit;
+	text-align: inherit;
+
+	&::after {
+		position: absolute;
+		inset: rem(-13px) 0;
+		content: '';
+	}
+}
+
+/* В User-Agent бывают длинные куски без пробелов. */
+.hintText {
+	overflow-wrap: anywhere;
+}
+
+.footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(10px);
+	margin-top: auto;
+	padding: rem(12px) rem(18px) rem(14px);
+	border-top: 1px solid var(--nz-line);
+}
+
+/* Карточки на телефоне */
+.cardsDay {
+	margin: 0;
+	padding: rem(12px) rem(14px) rem(4px);
+	color: var(--nz-ink-2);
+	font-family: inherit;
+	font-size: var(--mantine-font-size-xs);
+	font-weight: 700;
+}
+
+.cards {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.card {
+	display: flex;
+	gap: rem(10px);
+	padding: rem(10px) rem(14px) rem(11px);
+	border-top: 1px solid var(--nz-line);
+
+	& > svg {
+		margin-top: rem(1px);
+	}
+}
+
+.cardText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: rem(3px);
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.cardHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: rem(10px);
+}
+
+.cardAction {
+	font-size: var(--mantine-font-size-lg);
+	font-weight: 600;
+}
+
+.cardActor {
+	overflow: hidden;
+	color: var(--nz-ink-3);
+	font-size: var(--mantine-font-size-sm);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Незабудка</title>
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<script>
+			// Схема ставится до загрузки приложения, иначе страница сначала мелькает другой схемой.
+			// Ключ совпадает с COLOR_SCHEME_STORAGE_KEY в src/shared/ui/theme.
+			try {
+				var scheme = window.localStorage.getItem('nezabudka-color-scheme');
+				var dark =
+					scheme === 'dark' ||
+					(scheme !== 'light' &&
+						window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+				document.documentElement.setAttribute(
+					'data-mantine-color-scheme',
+					dark ? 'dark' : 'light'
+				);
+			} catch (error) {}
+		</script>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/app/main.tsx"></script>
+	</body>
+</html>

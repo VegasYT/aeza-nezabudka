@@ -1,0 +1,99 @@
+.account {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: rem(8px);
+	height: rem(36px);
+	padding: rem(4px);
+	border-radius: var(--mantine-radius-md);
+	color: var(--nz-ink-2);
+	font-size: var(--mantine-font-size-sm);
+
+	@mixin smaller-than $mantine-breakpoint-sm {
+		height: rem(44px);
+		padding: rem(8px);
+	}
+
+	@mixin hover {
+		background-color: var(--nz-hover);
+	}
+
+	&[data-expanded] {
+		background-color: var(--nz-hover);
+	}
+}
+
+.initial {
+	font-family: var(--mantine-font-family-headings);
+	font-size: var(--mantine-font-size-sm);
+	font-weight: 800;
+}
+
+/* Email рядом с аватаром виден, только если инструментам шапки хватает места. */
+.email,
+.chevron {
+	display: none;
+}
+
+.email {
+	max-width: rem(180px);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chevron {
+	flex: none;
+	color: var(--nz-ink-3);
+}
+
+@container (min-width: 380px) {
+	.account {
+		padding-right: rem(10px);
+	}
+
+	.email,
+	.chevron {
+		display: block;
+	}
+}
+
+.who {
+	display: flex;
+	align-items: center;
+	gap: rem(10px);
+	padding: rem(8px) rem(8px) rem(10px);
+}
+
+.whoText {
+	display: flex;
+	flex-direction: column;
+	gap: rem(3px);
+	min-width: 0;
+}
+
+.whoEmail {
+	overflow: hidden;
+	color: var(--nz-ink);
+	font-size: var(--mantine-font-size-sm);
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.whoRole {
+	color: var(--nz-ink-3);
+	font-size: var(--mantine-font-size-xs);
+}
+
+.scheme {
+	padding: rem(8px) rem(12px);
+
+	@mixin smaller-than $mantine-breakpoint-sm {
+		padding-block: rem(12px);
+	}
+}
+
+.schemeBody {
+	justify-content: space-between;
+}

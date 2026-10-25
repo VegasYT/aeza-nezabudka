@@ -1,0 +1,74 @@
+@startuml "observability"
+title Invoice Keeper — метрики и централизованные логи
+
+left to right direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Инженер\nсопровождения" as Operator
+
+node "Docker Compose" {
+    package "Приложение" {
+        component "Caddy" as Caddy
+        component "Backend\nAPI + планировщик + outbox" as Backend
+        database "PostgreSQL" as PostgreSQL
+    }
+
+    package "Контур наблюдаемости" {
+        component "Prometheus" as Prometheus
+        component "Promtail" as Promtail
+        database "Loki" as Loki
+        component "Grafana" as Grafana
+    }
+
+    artifact "Docker logs\nJSON stdout/stderr" as DockerLogs
+    storage "Том метрик" as MetricsVolume
+    storage "Том логов" as LogsVolume
+    artifact "Provisioning:\ndata sources + dashboard" as Provisioning
+}
+
+Prometheus --> Backend : GET /metrics\nкаждые 15 секунд
+Prometheus --> MetricsVolume : хранить ряды\nс ограниченным retention
+
+Caddy --> DockerLogs : писать логи
+Backend --> DockerLogs : писать логи с\nrequest_id / operation_id
+PostgreSQL --> DockerLogs : писать логи
+
+Promtail --> DockerLogs : читать логи контейнеров
+Promtail --> Loki : отправлять записи\nservice, environment, level
+Loki --> LogsVolume : хранить записи\nс ограниченным retention
+
+Grafana --> Prometheus : PromQL — метрики
+Grafana --> Loki : LogQL — логи
+Provisioning --> Grafana : настроить при старте
+Operator --> Grafana : смотреть dashboard\nи искать логи
+
+note right of Backend
+  Метрики:
+  • HTTP RPS, duration, status
+  • тик планировщика
+  • размер и возраст outbox
+  • результаты уведомлений
+
+  Без ID пользователей и платежей,
+  логинов и текстов ошибок в labels
+end note
+
+note bottom of DockerLogs
+  Пароли, Bearer-токены,
+  токен Telegram-бота и другие
+  секреты не журналируются
+end note
+
+note bottom of Promtail
+  Promtail достиг EOL 02.03.2026.
+  Используется закреплённая версия;
+  целевая замена — Grafana Alloy
+end note
+
+note bottom of Grafana
+  Не публикуется через Caddy.
+  Доступ: локальный порт или SSH-туннель
+end note
+
+@enduml

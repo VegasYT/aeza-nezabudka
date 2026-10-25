@@ -1,0 +1,33 @@
+/* Бренд не выделяется мышью: это знак, а не текст для копирования. Цвет разделителя и названия - цвет текста вокруг. */
+.brand {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: rem(12px);
+	user-select: none;
+}
+
+.link {
+	border-radius: var(--mantine-radius-xs);
+
+	/* На телефоне цель нажатия 44 px, а знак остаётся на месте: отступ гасится отрицательным полем. */
+	@mixin smaller-than $mantine-breakpoint-sm {
+		display: inline-flex;
+		margin: rem(-8px);
+		padding: rem(8px);
+	}
+}
+
+.divider {
+	width: rem(2px);
+	height: rem(20px);
+	border-radius: rem(1px);
+	background-color: currentcolor;
+}
+
+.name {
+	font-family: var(--mantine-font-family-headings);
+	font-size: var(--mantine-font-size-xl);
+	font-weight: 800;
+	letter-spacing: -0.01em;
+}

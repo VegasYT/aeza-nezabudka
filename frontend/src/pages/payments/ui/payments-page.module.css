@@ -1,0 +1,475 @@
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--mantine-spacing-sm);
+	padding-right: var(--mantine-spacing-xs);
+}
+
+.controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--mantine-spacing-xs);
+}
+
+.periodButton {
+	min-width: rem(220px);
+	font-variant-numeric: tabular-nums;
+}
+
+.cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(rem(260px), 100%), 1fr));
+	gap: rem(6px);
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	gap: rem(12px);
+	min-width: 0;
+	min-height: rem(150px);
+	padding: rem(16px) rem(18px);
+}
+
+.cardSelected {
+	box-shadow: inset 0 0 0 2px var(--nz-accent);
+}
+
+.cardHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--mantine-spacing-xs);
+}
+
+.code {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(15px);
+	font-weight: 900;
+}
+
+.muted {
+	font-size: var(--mantine-font-size-xs);
+	color: var(--nz-ink-3);
+	font-variant-numeric: tabular-nums;
+}
+
+.left {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(30px);
+	font-weight: 700;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.bar {
+	display: flex;
+	gap: 2px;
+	height: rem(6px);
+	overflow: hidden;
+	border-radius: rem(3px);
+	background: var(--nz-inset);
+	box-shadow: inset 0 0 0 1px var(--nz-line);
+}
+
+.legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: rem(4px) rem(16px);
+	font-size: var(--mantine-font-size-xs);
+	color: var(--nz-ink-2);
+}
+
+.legendItem {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(6px);
+	white-space: nowrap;
+}
+
+.dot {
+	width: rem(8px);
+	height: rem(8px);
+	border-radius: 50%;
+}
+
+.amount {
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.paid {
+	background: var(--nz-status-paid);
+}
+
+.overdue {
+	background: var(--nz-status-overdue);
+}
+
+.waiting {
+	background: var(--nz-status-waiting);
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	padding: 0;
+}
+
+.filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(10px);
+	padding: rem(12px) rem(14px);
+}
+
+.older {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: rem(6px) rem(12px);
+	margin: 0 rem(14px) rem(10px);
+	padding: rem(8px) rem(8px) rem(8px) rem(12px);
+	border-radius: rem(10px);
+	background: var(--nz-danger-soft);
+	color: var(--nz-on-danger-soft);
+	font-size: var(--mantine-font-size-sm);
+	font-weight: 600;
+}
+
+.olderText {
+	flex: 1;
+	min-width: 0;
+}
+
+.tableWrap {
+	/* `VisuallyHidden` в таблице позиционирован абсолютно: без этого он вырывается за прокрутку и расширяет страницу. */
+	position: relative;
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.table {
+	width: 100%;
+	min-width: rem(1060px);
+	border-collapse: collapse;
+	font-size: var(--mantine-font-size-md);
+
+	& th {
+		padding: rem(8px) rem(16px);
+		font-size: var(--mantine-font-size-xs);
+		font-weight: 600;
+		color: var(--nz-ink-3);
+		text-align: left;
+	}
+
+	& td {
+		padding: rem(10px) rem(16px);
+		border-top: 1px solid var(--nz-line);
+		vertical-align: middle;
+	}
+
+	& th:first-child,
+	& td:first-child {
+		padding-left: rem(18px);
+	}
+
+	& th:last-child,
+	& td:last-child {
+		padding-right: rem(14px);
+		text-align: right;
+		white-space: nowrap;
+	}
+}
+
+/* Без колонки «Платёж» таблица помещается в окно платежа. */
+.tableCompact {
+	min-width: rem(720px);
+}
+
+.numeric {
+	text-align: right !important;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.name {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--mantine-spacing-xs);
+	min-width: 0;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.sort {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(6px);
+	font-size: var(--mantine-font-size-xs);
+	font-weight: 600;
+	color: var(--nz-ink-2);
+}
+
+.due {
+	color: var(--nz-ink-2);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.status {
+	display: inline-flex;
+	align-items: flex-start;
+	gap: var(--mantine-spacing-xs);
+}
+
+.statusText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	white-space: nowrap;
+}
+
+.none {
+	color: var(--nz-ink-4);
+}
+
+/* Нулевая сумма - настоящее значение, а не прочерк: она тише суммы, но читается. */
+.zero {
+	color: var(--nz-ink-3);
+}
+
+.lateDays {
+	font-weight: 600;
+	color: var(--nz-status-overdue-ink);
+}
+
+.paidBy {
+	max-width: rem(210px);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.actions {
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: rem(4px);
+}
+
+/* Ширина не прыгает, пока «Оплачено» сменяется на «Сохраняем…». */
+.mark {
+	min-width: rem(148px);
+}
+
+.footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(10px);
+	margin-top: auto;
+	padding: rem(10px) rem(14px) rem(12px) rem(18px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.stateBorder {
+	border-top: 1px solid var(--nz-line);
+}
+
+.dialogAmount {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: rem(12px);
+	padding: rem(12px) rem(14px);
+	border-radius: rem(12px);
+	background: var(--nz-inset);
+}
+
+.dialogSum {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(22px);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.preview {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: baseline;
+	gap: rem(8px) rem(14px);
+	padding: rem(12px) rem(14px);
+	border-radius: rem(12px);
+	background: var(--nz-inset);
+	font-size: var(--mantine-font-size-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+.previewAfter {
+	font-weight: 700;
+}
+
+.phoneToolbar {
+	display: flex;
+	flex-direction: column;
+	gap: rem(4px);
+}
+
+.phonePeriod {
+	display: flex;
+	align-items: center;
+	gap: rem(4px);
+}
+
+.phoneSummary {
+	display: flex;
+	flex-direction: column;
+	gap: rem(8px);
+	padding: rem(12px) rem(14px);
+}
+
+.phoneTotal {
+	display: grid;
+	grid-template-columns: rem(40px) minmax(0, 1fr);
+	align-items: baseline;
+	gap: rem(2px) rem(8px);
+	padding-top: rem(8px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.phoneLeft {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(20px);
+	font-weight: 700;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.overdueText {
+	font-weight: 700;
+	color: var(--nz-status-overdue-ink);
+}
+
+.phoneCards {
+	display: flex;
+	flex-direction: column;
+	gap: rem(4px);
+}
+
+.phoneCard {
+	display: flex;
+	flex-direction: column;
+	gap: rem(6px);
+	padding: rem(14px);
+}
+
+.phoneCardHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: rem(12px);
+}
+
+.phoneAmount {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(17px);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.phoneStatusRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--mantine-spacing-xs);
+	min-height: rem(30px);
+	font-size: var(--mantine-font-size-sm);
+}
+
+.phoneActions {
+	display: flex;
+	gap: rem(6px);
+	padding-top: rem(4px);
+}
+
+.sheetAction {
+	justify-content: flex-start;
+	height: rem(48px);
+}
+
+.phoneTitleRow {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--mantine-spacing-xs);
+
+	/* Счётчик на «Фильтрах» выступает за кнопку. */
+	padding-right: rem(6px);
+}
+
+/* Лист снизу по высоте содержимого: size='auto' у Drawer Mantine не работает. */
+.sheet {
+	height: auto;
+	max-height: 90dvh;
+	border-radius: var(--mantine-radius-xl) var(--mantine-radius-xl) 0 0;
+	padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.viewLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(7px);
+}
+
+.phoneViews {
+	flex: none;
+}
+
+.year {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: rem(8px);
+	min-width: rem(120px);
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(15px);
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+
+	& svg {
+		color: var(--nz-ink-3);
+	}
+}
+
+.phonePeriod > .year {
+	flex: 1;
+}
+
+/* Плановые периоды: ещё не созданы, поэтому приглушены и без действий. */
+.plannedRow .name,
+.plannedRow .amount,
+.plannedCard .name,
+.plannedCard .phoneAmount {
+	color: var(--nz-ink-2);
+}
+
+.plannedCard {
+	border: 1px dashed var(--nz-ink-4);
+	background-color: transparent;
+	box-shadow: none;
+}

@@ -1,0 +1,534 @@
+/* Тёмная тема Swagger UI в палитре веб-панели (frontend/src/shared/ui/theme/tokens.ts). */
+:root {
+	--nz-canvas: #232323;
+	/* поверхности серее, чем в панели: чёрные блоки на холсте Swagger выглядят провалами */
+	--nz-island: #2b2b2b;
+	--nz-raised: #333333;
+	--nz-inset: #1c1c1c;
+	--nz-hover: #303030;
+	--nz-line: rgba(255, 255, 255, 0.08);
+	--nz-line-strong: rgba(255, 255, 255, 0.16);
+	--nz-ink: #f4f4f4;
+	--nz-ink-2: #bdbdbd;
+	--nz-ink-3: #8f8f8f;
+	--nz-accent: #4cc6f1;
+	--nz-accent-soft: #10303b;
+	--nz-get: #4cc6f1;
+	--nz-post: #3cc273;
+	--nz-patch: #ffc94a;
+	--nz-delete: #ff5a5f;
+	--nz-radius: 9px;
+	--nz-font: 'Inter Variable', system-ui, sans-serif;
+	--nz-heading: 'Exo 2 Variable', 'Inter Variable', system-ui, sans-serif;
+	--nz-mono: ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+}
+
+html,
+body {
+	background: var(--nz-canvas);
+	color: var(--nz-ink);
+}
+
+body {
+	margin: 0;
+}
+
+.swagger-ui,
+.swagger-ui .info,
+.swagger-ui .opblock-tag,
+.swagger-ui .opblock .opblock-summary-description,
+.swagger-ui table,
+.swagger-ui .parameter__name,
+.swagger-ui .response-col_status,
+.swagger-ui .tab li,
+.swagger-ui label,
+.swagger-ui .btn {
+	font-family: var(--nz-font);
+	color: var(--nz-ink);
+}
+
+.swagger-ui .wrapper {
+	max-width: 1360px;
+	padding: 0 24px;
+}
+
+/* Шапка и вступление */
+.swagger-ui .information-container {
+	padding: 32px 24px 8px;
+}
+
+.swagger-ui .info {
+	margin: 0 0 24px;
+}
+
+.swagger-ui .info .title {
+	font-family: var(--nz-heading);
+	font-weight: 900;
+	font-size: 30px;
+	color: var(--nz-ink);
+}
+
+.swagger-ui .info .title small,
+.swagger-ui .info .title small.version-stamp {
+	background: var(--nz-accent-soft);
+	color: var(--nz-accent);
+	border-radius: 6px;
+	padding: 2px 8px;
+}
+
+.swagger-ui .info .title small pre {
+	color: inherit;
+	font-family: var(--nz-font);
+}
+
+.swagger-ui .info .base-url,
+.swagger-ui .info a.link {
+	color: var(--nz-ink-3);
+}
+
+.swagger-ui .info .description,
+.swagger-ui .markdown p,
+.swagger-ui .markdown li,
+.swagger-ui .renderedMarkdown p,
+.swagger-ui .renderedMarkdown li {
+	color: var(--nz-ink-2);
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+.swagger-ui .info h3,
+.swagger-ui .markdown h3 {
+	font-family: var(--nz-heading);
+	font-weight: 800;
+	font-size: 18px;
+	color: var(--nz-ink);
+	margin: 20px 0 6px;
+}
+
+.swagger-ui .markdown strong,
+.swagger-ui .renderedMarkdown strong {
+	color: var(--nz-ink);
+}
+
+.swagger-ui .markdown code,
+.swagger-ui .renderedMarkdown code,
+.swagger-ui .info code {
+	font-family: var(--nz-mono);
+	background: var(--nz-accent-soft);
+	color: var(--nz-accent);
+	border-radius: 4px;
+	padding: 1px 5px;
+	font-size: 12.5px;
+	font-weight: 500;
+}
+
+.swagger-ui a,
+.swagger-ui .info a {
+	color: var(--nz-accent);
+}
+
+/* Полоса с авторизацией */
+.swagger-ui .scheme-container {
+	background: transparent;
+	box-shadow: none;
+	margin: 0;
+	padding: 0 0 16px;
+}
+
+/* Разделы */
+.swagger-ui .opblock-tag {
+	border-bottom: 1px solid var(--nz-line);
+	font-family: var(--nz-heading);
+	font-weight: 800;
+	font-size: 20px;
+}
+
+.swagger-ui .opblock-tag:hover {
+	background: var(--nz-hover);
+}
+
+.swagger-ui .opblock-tag small {
+	color: var(--nz-ink-3);
+	font-family: var(--nz-font);
+	font-weight: 400;
+	font-size: 13px;
+}
+
+/* стрелки и замки - акцентом: их path рисуется через currentColor, поэтому нужен и color */
+.swagger-ui .opblock-tag svg,
+.swagger-ui .expand-operation svg,
+.swagger-ui .opblock-summary-control svg,
+.swagger-ui .opblock-control-arrow svg,
+.swagger-ui svg.arrow,
+.swagger-ui .models-control svg,
+.swagger-ui .authorization__btn svg,
+.swagger-ui svg.locked,
+.swagger-ui svg.unlocked {
+	color: var(--nz-accent);
+	fill: var(--nz-accent) !important;
+	opacity: 1;
+}
+
+/* Операции */
+/* :is() поднимает специфичность до правил Swagger вида .opblock.opblock-get */
+.swagger-ui .opblock,
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) {
+	--method: var(--nz-ink-3);
+	background: var(--nz-island);
+	border: 1px solid var(--nz-line);
+	border-left: 3px solid var(--method);
+	border-radius: var(--nz-radius);
+	box-shadow: none;
+	margin: 0 0 8px;
+}
+
+.swagger-ui .opblock.opblock-get {
+	--method: var(--nz-get);
+}
+
+.swagger-ui .opblock.opblock-post {
+	--method: var(--nz-post);
+}
+
+.swagger-ui .opblock.opblock-patch,
+.swagger-ui .opblock.opblock-put {
+	--method: var(--nz-patch);
+}
+
+.swagger-ui .opblock.opblock-delete {
+	--method: var(--nz-delete);
+}
+
+.swagger-ui .opblock .opblock-summary,
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .opblock-summary {
+	border: none;
+	padding: 8px 12px;
+	/* едва заметный оттенок цвета метода */
+	background: color-mix(in srgb, var(--method) 6%, transparent);
+}
+
+.swagger-ui .opblock.is-open .opblock-summary,
+.swagger-ui .opblock.is-open:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .opblock-summary {
+	border-bottom: 1px solid var(--nz-line);
+}
+
+.swagger-ui .opblock .opblock-summary-method,
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .opblock-summary-method {
+	background: var(--method);
+	color: #000;
+	border-radius: 6px;
+	font-family: var(--nz-font);
+	font-weight: 700;
+	min-width: 72px;
+	text-shadow: none;
+}
+
+.swagger-ui .opblock .opblock-summary-path,
+.swagger-ui .opblock .opblock-summary-path__deprecated {
+	color: var(--nz-ink);
+	font-family: var(--nz-mono);
+	font-size: 14px;
+}
+
+.swagger-ui .opblock .opblock-summary-description {
+	color: var(--nz-ink-2);
+}
+
+.swagger-ui .opblock .opblock-summary:hover,
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .opblock-summary:hover {
+	background: color-mix(in srgb, var(--method) 11%, transparent);
+}
+
+/* кнопка внутри строки наследует фон Swagger: без этого оттенок ложится дважды */
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .opblock-summary .opblock-summary-control {
+	background: transparent;
+}
+
+.swagger-ui .opblock-description-wrapper,
+.swagger-ui .opblock-external-docs-wrapper,
+.swagger-ui .opblock-title_normal {
+	color: var(--nz-ink-2);
+}
+
+.swagger-ui .opblock .opblock-section-header,
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .opblock-section-header {
+	background: var(--nz-raised);
+	box-shadow: none;
+	border-bottom: 1px solid var(--nz-line);
+}
+
+.swagger-ui .opblock .opblock-section-header h4,
+.swagger-ui .opblock-title,
+.swagger-ui .responses-inner h4,
+.swagger-ui .responses-inner h5 {
+	color: var(--nz-ink);
+	font-family: var(--nz-font);
+}
+
+.swagger-ui .opblock-body pre.microlight,
+.swagger-ui .highlight-code > .microlight,
+.swagger-ui .opblock-body pre {
+	background: var(--nz-inset) !important;
+	border: 1px solid var(--nz-line);
+	border-radius: 6px;
+	font-family: var(--nz-mono);
+}
+
+/* Таблицы параметров и ответов */
+.swagger-ui table thead tr td,
+.swagger-ui table thead tr th,
+.swagger-ui .parameters-col_name,
+.swagger-ui .response-col_status {
+	color: var(--nz-ink);
+	border-bottom: 1px solid var(--nz-line);
+}
+
+.swagger-ui .parameter__type,
+.swagger-ui .parameter__in,
+.swagger-ui .parameter__deprecated,
+.swagger-ui .prop-format,
+.swagger-ui .response-col_links,
+.swagger-ui .responses-inner .response-control-media-type__accept-message {
+	color: var(--nz-ink-3);
+	font-family: var(--nz-mono);
+}
+
+.swagger-ui .parameter__name.required::after,
+.swagger-ui .parameter__name.required span {
+	color: var(--nz-delete);
+}
+
+.swagger-ui .response-col_description,
+.swagger-ui .parameters-col_description {
+	color: var(--nz-ink-2);
+}
+
+.swagger-ui .tab li button.tablinks,
+.swagger-ui .tab li {
+	color: var(--nz-ink-3);
+}
+
+.swagger-ui .tab li.active button.tablinks {
+	color: var(--nz-ink);
+}
+
+/* Поля ввода */
+.swagger-ui input[type='text'],
+.swagger-ui input[type='password'],
+.swagger-ui input[type='search'],
+.swagger-ui input[type='email'],
+.swagger-ui input[type='file'],
+.swagger-ui textarea,
+.swagger-ui select,
+.swagger-ui .filter .operation-filter-input {
+	background: var(--nz-inset);
+	color: var(--nz-ink);
+	border: 1px solid var(--nz-line-strong);
+	border-radius: 6px;
+	font-family: var(--nz-font);
+	box-shadow: none;
+}
+
+.swagger-ui textarea {
+	font-family: var(--nz-mono);
+}
+
+.swagger-ui input:focus,
+.swagger-ui textarea:focus,
+.swagger-ui select:focus {
+	outline: 2px solid var(--nz-accent);
+	outline-offset: 1px;
+}
+
+.swagger-ui input.invalid,
+.swagger-ui textarea.invalid,
+.swagger-ui select.invalid {
+	border-color: var(--nz-delete);
+	background: #3b1a22;
+}
+
+.swagger-ui .filter-container {
+	margin: 0 0 16px;
+}
+
+/* Кнопки */
+.swagger-ui .btn {
+	background: transparent;
+	border: 1px solid var(--nz-line-strong);
+	border-radius: 6px;
+	box-shadow: none;
+	color: var(--nz-ink);
+}
+
+.swagger-ui .btn:hover {
+	background: var(--nz-hover);
+}
+
+.swagger-ui .btn.authorize,
+.swagger-ui .btn.execute {
+	background: var(--nz-accent);
+	border-color: var(--nz-accent);
+	color: #000;
+	font-weight: 600;
+}
+
+.swagger-ui .btn.authorize svg {
+	color: #000;
+	fill: #000 !important;
+}
+
+.swagger-ui .btn.cancel {
+	border-color: var(--nz-delete);
+	color: var(--nz-delete);
+}
+
+.swagger-ui .authorization__btn svg,
+.swagger-ui .unlocked,
+.swagger-ui .locked {
+	fill: var(--nz-ink-3);
+}
+
+.swagger-ui .copy-to-clipboard {
+	background: var(--nz-raised);
+	border-radius: 6px;
+}
+
+/* Окно авторизации */
+.swagger-ui .dialog-ux .backdrop-ux {
+	background: rgba(0, 0, 0, 0.7);
+}
+
+.swagger-ui .dialog-ux .modal-ux {
+	background: var(--nz-raised);
+	border: 1px solid var(--nz-line-strong);
+	border-radius: 14px;
+	box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.7);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header {
+	border-bottom: 1px solid var(--nz-line);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header h3,
+.swagger-ui .dialog-ux .modal-ux-content h4,
+.swagger-ui .dialog-ux .modal-ux-content p,
+.swagger-ui .dialog-ux .modal-ux-content label {
+	color: var(--nz-ink);
+	font-family: var(--nz-font);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header .close-modal svg {
+	fill: var(--nz-ink-2);
+}
+
+.swagger-ui .auth-container {
+	border-bottom: 1px solid var(--nz-line);
+}
+
+/* Схемы данных */
+.swagger-ui section.models {
+	border: 1px solid var(--nz-line);
+	border-radius: var(--nz-radius);
+	background: var(--nz-island);
+}
+
+.swagger-ui section.models h4,
+.swagger-ui section.models .model-container,
+.swagger-ui .model-box {
+	color: var(--nz-ink);
+	background: transparent;
+}
+
+.swagger-ui section.models .model-container:hover {
+	background: var(--nz-hover);
+}
+
+.swagger-ui .model,
+.swagger-ui .model-title,
+.swagger-ui .model .property,
+.swagger-ui .model .renderedMarkdown p {
+	color: var(--nz-ink-2);
+	font-family: var(--nz-mono);
+}
+
+.swagger-ui .model .prop-type,
+.swagger-ui .prop-type {
+	color: var(--nz-accent);
+}
+
+.swagger-ui .model .property.primitive,
+.swagger-ui .model-hint {
+	color: var(--nz-ink-3);
+}
+
+.swagger-ui .model-box-control:focus,
+.swagger-ui .models-control:focus,
+.swagger-ui .opblock-summary-control:focus {
+	outline: 2px solid var(--nz-accent);
+}
+
+/* Ответ сервера */
+.swagger-ui .responses-inner {
+	background: transparent;
+}
+
+.swagger-ui .response-col_status .response-undocumented {
+	color: var(--nz-ink-3);
+}
+
+.swagger-ui .live-responses-table .response-col_status {
+	color: var(--nz-ink);
+}
+
+.swagger-ui .loading-container .loading::after {
+	color: var(--nz-ink-2);
+}
+
+.swagger-ui .errors-wrapper {
+	background: #3b1a22;
+	border: 1px solid var(--nz-delete);
+	color: var(--nz-ink);
+}
+
+/* Полоса прокрутки */
+* {
+	scrollbar-color: var(--nz-line-strong) transparent;
+}
+
+/* Подчёркивание активной вкладки и иконки замков в цвете метода */
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .tab-header .tab-item.active h4 span::after {
+	background: var(--method);
+}
+
+.swagger-ui .opblock:is(.opblock-get, .opblock-post, .opblock-patch, .opblock-put, .opblock-delete) .opblock-summary-control:focus {
+	outline: none;
+}
+
+/* Тексты, которые Swagger красит тёмным: подсказки без параметров и просмотр схем OpenAPI 3.1 */
+.swagger-ui .opblock-description-wrapper p,
+.swagger-ui .opblock-external-docs-wrapper p,
+.swagger-ui .opblock-title_normal p,
+.swagger-ui .json-schema-2020-12__title,
+.swagger-ui .json-schema-2020-12-keyword__name,
+.swagger-ui .json-schema-2020-12-keyword__value,
+.swagger-ui .json-schema-2020-12-json-viewer__name,
+.swagger-ui .json-schema-2020-12-json-viewer__value,
+.swagger-ui .json-schema-2020-12-property {
+	color: var(--nz-ink-2);
+}
+
+.swagger-ui .json-schema-2020-12__attribute {
+	color: var(--nz-accent);
+}
+
+.swagger-ui .json-schema-2020-12__constraint {
+	background: var(--nz-accent-soft);
+	color: var(--nz-accent);
+}
+
+.swagger-ui .download-contents {
+	background: var(--nz-raised);
+	color: var(--nz-ink);
+	border: 1px solid var(--nz-line-strong);
+	border-radius: 6px;
+}

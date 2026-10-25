@@ -1,0 +1,42 @@
+# Внешний прокси сервера. Адреса задаются переменными SCHEME и DOMAIN из infra/.env.
+# При SCHEME=https Caddy сам получает и продлевает сертификаты Let's Encrypt;
+# SCHEME=http нужен только для локальной проверки набора без сертификатов.
+{
+	admin off
+}
+
+{$SCHEME}://{$DOMAIN} {
+	encode zstd gzip
+
+	# только API и Swagger: /metrics, /healthz и /readyz процесса наружу не отдаются
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	# видео и картинки из docs/assets, например /media/nezabudka-demo.mp4
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy frontend:80
+	}
+}
+
+{$SCHEME}://www.{$DOMAIN} {
+	redir {$SCHEME}://{$DOMAIN}{uri} permanent
+}
+
+# Grafana открыта наружу только через прокси и закрыта паролем администратора (ADR-009).
+{$SCHEME}://grafana.{$DOMAIN} {
+	reverse_proxy grafana:3000
+}
+
+# pgAdmin закрыт своим входом (PGADMIN_EMAIL, PGADMIN_PASSWORD); PostgreSQL наружу не открыт.
+{$SCHEME}://pgadmin.{$DOMAIN} {
+	reverse_proxy pgadmin:80
+}
+
+# Kafka UI только с профилем integration, закрыт своим входом (KAFKA_UI_PASSWORD), только чтение.
+{$SCHEME}://kafka.{$DOMAIN} {
+	reverse_proxy kafka-ui:8080
+}

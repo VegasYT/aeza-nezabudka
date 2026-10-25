@@ -1,0 +1,690 @@
+/* Календарь */
+.calendar {
+	/* `VisuallyHidden` в таблице позиционирован абсолютно: без этого он вырывается за прокрутку и расширяет страницу. */
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--mantine-spacing-lg);
+	min-width: 0;
+	padding: 0 rem(14px) rem(10px);
+	overflow-x: auto;
+}
+
+.month {
+	display: flex;
+	flex-direction: column;
+	gap: rem(6px);
+	min-width: rem(860px);
+}
+
+.monthTitle {
+	margin: 0;
+	padding: rem(4px) rem(4px) 0;
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(16px);
+	font-weight: 800;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(rem(120px), 1fr));
+	gap: rem(4px);
+}
+
+.weekday,
+.weekend {
+	padding: rem(2px) rem(9px) rem(4px);
+	color: var(--nz-ink-2);
+	font-size: var(--mantine-font-size-xs);
+	font-weight: 600;
+}
+
+.weekend {
+	color: var(--nz-ink-3);
+}
+
+.cell {
+	display: flex;
+	flex-direction: column;
+	gap: rem(3px);
+	box-sizing: border-box;
+	min-width: 0;
+	min-height: rem(100px);
+	padding: rem(7px) rem(5px) rem(5px);
+	border-radius: rem(10px);
+	background-color: var(--nz-well);
+
+	&[data-today] {
+		box-shadow: inset 0 0 0 2px var(--nz-accent);
+	}
+}
+
+.dayNumber {
+	padding: 0 rem(4px) rem(3px);
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(14px);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
+.chip,
+.chipPlanned {
+	display: flex;
+	align-items: center;
+	gap: rem(6px);
+	box-sizing: border-box;
+	width: 100%;
+	height: rem(26px);
+	padding: 0 rem(6px);
+	border-radius: rem(7px);
+	font-size: var(--mantine-font-size-xs);
+
+	& svg {
+		flex: none;
+		width: rem(14px);
+		height: rem(14px);
+	}
+
+	&[aria-expanded='true'] {
+		box-shadow: inset 0 0 0 2px var(--nz-ink);
+	}
+}
+
+.chip {
+	background-color: var(--nz-island);
+	box-shadow: 0 0 0 1px var(--nz-line);
+}
+
+.chipPlanned {
+	border: 1px dashed var(--nz-ink-4);
+	color: var(--nz-ink-2);
+}
+
+.chipName {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chipAmount {
+	color: var(--nz-ink-2);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.plannedMark {
+	flex: none;
+	color: var(--nz-ink-3);
+}
+
+.plannedText {
+	color: var(--nz-ink-2);
+	font-weight: 600;
+}
+
+.legendRow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(8px) rem(24px);
+	margin-top: auto;
+	padding: rem(12px) rem(18px) rem(14px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: rem(6px) rem(18px);
+	margin: 0;
+	padding: 0;
+	color: var(--nz-ink-2);
+	font-size: var(--mantine-font-size-xs);
+	list-style: none;
+}
+
+.legendItem {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(6px);
+
+	& svg {
+		width: rem(14px);
+		height: rem(14px);
+	}
+}
+
+.count {
+	color: var(--nz-ink-3);
+	font-size: var(--mantine-font-size-xs);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Карточка периода */
+.entryCard {
+	display: flex;
+	flex-direction: column;
+	gap: rem(12px);
+}
+
+.entryTitle {
+	display: flex;
+	flex-direction: column;
+	gap: rem(2px);
+	min-width: 0;
+}
+
+.entryName {
+	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+
+.entryCard .entryName {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(17px);
+	font-weight: 800;
+}
+
+.entryAmount {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: rem(10px);
+}
+
+.entrySum {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(22px);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.entrySumSmall {
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.numbers {
+	font-variant-numeric: tabular-nums;
+}
+
+.entryStatus {
+	display: flex;
+	align-items: flex-start;
+	gap: rem(8px);
+
+	& > svg {
+		flex: none;
+		margin-top: rem(1px);
+	}
+}
+
+.entryStatusText {
+	display: flex;
+	flex-direction: column;
+	gap: rem(2px);
+	font-size: var(--mantine-font-size-sm);
+}
+
+.entryNote {
+	line-height: 1.45;
+}
+
+/* Календарь на телефоне */
+.phoneCalendar {
+	display: flex;
+	flex-direction: column;
+	gap: rem(4px);
+}
+
+.phoneMonth {
+	display: flex;
+	flex-direction: column;
+	gap: rem(6px);
+	padding: rem(10px) rem(8px) rem(8px);
+	border-radius: rem(12px);
+	background-color: var(--nz-island);
+	box-shadow: var(--nz-island-ring);
+}
+
+.phoneGrid {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: rem(2px);
+	text-align: center;
+
+	& .weekday,
+	& .weekend {
+		padding: rem(2px) 0 rem(6px);
+		font-size: rem(11px);
+	}
+}
+
+.phoneDay {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: rem(5px);
+	height: rem(46px);
+	padding-top: rem(6px);
+	border-radius: rem(9px);
+
+	&[data-today] {
+		box-shadow: inset 0 0 0 1.5px var(--nz-accent);
+	}
+
+	&[data-selected] {
+		background-color: var(--nz-ink);
+		color: var(--nz-island);
+	}
+}
+
+.phoneDayNumber {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(15px);
+	font-variant-numeric: tabular-nums;
+}
+
+.dots {
+	display: flex;
+	gap: rem(3px);
+	height: rem(6px);
+}
+
+.dot {
+	width: rem(6px);
+	height: rem(6px);
+	border-radius: 50%;
+}
+
+.dotPaid {
+	background-color: var(--nz-status-paid);
+}
+
+.dotOverdue {
+	background-color: var(--nz-status-overdue);
+}
+
+.dotSoon {
+	background-color: var(--nz-status-soon);
+}
+
+.dotWaiting {
+	background-color: var(--nz-status-waiting);
+}
+
+.dotPlanned {
+	box-shadow: inset 0 0 0 1.5px var(--nz-ink-3);
+}
+
+.dayPanel {
+	display: flex;
+	flex-direction: column;
+	gap: rem(6px);
+	margin-top: rem(6px);
+	padding-top: rem(10px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.dayHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: rem(8px);
+	padding: 0 rem(6px);
+}
+
+.dayTitle {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(16px);
+	font-weight: 800;
+}
+
+.plannedRow {
+	display: flex;
+	flex-direction: column;
+	gap: rem(5px);
+	padding: rem(10px) rem(6px) rem(12px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.plannedRowHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: rem(12px);
+}
+
+/* Бюджет */
+.planCards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(rem(260px), 1fr));
+	gap: var(--island-gap);
+}
+
+.planCard {
+	display: flex;
+	flex-direction: column;
+	gap: rem(12px);
+	min-width: 0;
+}
+
+.planHead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: rem(8px);
+}
+
+.code {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(15px);
+	font-weight: 900;
+}
+
+.planNone {
+	margin: auto 0;
+}
+
+.planSum {
+	display: flex;
+	flex-direction: column;
+	gap: rem(4px);
+}
+
+.planAmount {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(30px);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+.planSign {
+	color: var(--nz-ink-3);
+	font-weight: 600;
+}
+
+.bar {
+	display: flex;
+	gap: rem(2px);
+	height: rem(6px);
+	border-radius: rem(3px);
+	overflow: hidden;
+	background-color: var(--nz-inset);
+	box-shadow: inset 0 0 0 1px var(--nz-line);
+}
+
+.barPaid {
+	background-color: var(--nz-status-paid);
+}
+
+.barOverdue {
+	background-color: var(--nz-status-overdue);
+}
+
+.barWaiting {
+	background-color: var(--nz-status-waiting);
+}
+
+.barLegend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: rem(4px) rem(16px);
+	color: var(--nz-ink-2);
+	font-size: var(--mantine-font-size-xs);
+}
+
+.barLegendItem {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(6px);
+	white-space: nowrap;
+}
+
+.barDot {
+	width: rem(8px);
+	height: rem(8px);
+	border-radius: 50%;
+}
+
+.legendAmount {
+	color: var(--nz-ink);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.overdueAmount {
+	color: var(--nz-status-overdue-ink);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
+.budgetIsland {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+.budgetTitle {
+	padding: rem(14px) rem(18px) rem(10px);
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(18px);
+	font-weight: 900;
+	text-transform: uppercase;
+}
+
+.tableBox {
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.budgetTable {
+	--table-border-color: var(--nz-line);
+
+	min-width: rem(860px);
+	font-size: var(--mantine-font-size-md);
+
+	& thead th {
+		color: var(--nz-ink-3);
+		font-size: var(--mantine-font-size-xs);
+		font-weight: 600;
+	}
+
+	& th:first-child {
+		padding-left: rem(18px);
+	}
+
+	& td:last-child,
+	& th:last-child {
+		padding-right: rem(18px);
+	}
+}
+
+.sumColumn {
+	text-align: right;
+}
+
+.periodsColumn {
+	padding-left: rem(32px);
+}
+
+.currentMonth {
+	background-color: var(--nz-accent-soft);
+}
+
+.monthCell {
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.monthName,
+.monthEmpty {
+	color: var(--nz-ink);
+	text-decoration: none;
+}
+
+.monthEmpty {
+	color: var(--nz-ink-3);
+}
+
+.currentBadge {
+	margin-left: rem(8px);
+	padding: rem(2px) rem(7px);
+	border-radius: rem(6px);
+	background-color: var(--nz-island);
+	color: var(--nz-accent-ink);
+	font-size: rem(11px);
+	font-weight: 700;
+}
+
+.sum,
+.sumFuture,
+.sumEmpty,
+.totalSum {
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.sumFuture {
+	color: var(--nz-ink-2);
+}
+
+.sumEmpty {
+	color: var(--nz-ink-4);
+}
+
+.periodsCell {
+	padding-left: rem(32px);
+	color: var(--nz-ink-2);
+	font-size: var(--mantine-font-size-sm);
+}
+
+.periodsState {
+	display: inline-flex;
+	align-items: center;
+	gap: rem(8px);
+}
+
+.periodsMark {
+	display: inline-flex;
+	flex: none;
+	width: rem(16px);
+	height: rem(16px);
+
+	& svg {
+		width: rem(16px);
+		height: rem(16px);
+	}
+}
+
+.warn {
+	color: var(--nz-status-overdue-ink);
+	font-weight: 700;
+}
+
+.totalRow {
+	border-top: 2px solid var(--nz-line-strong);
+}
+
+.totalLabel {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(15px);
+	font-weight: 900;
+}
+
+.totalSum {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(16px);
+	font-weight: 700;
+}
+
+.budgetNote {
+	margin-top: auto;
+	padding: rem(12px) rem(18px) rem(14px);
+	border-top: 1px solid var(--nz-line);
+}
+
+/* Бюджет на телефоне */
+.phoneMonths {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+}
+
+.phoneMonthsEmpty {
+	display: flex;
+	align-items: center;
+	min-height: rem(48px);
+	padding: rem(6px) rem(14px) rem(6px) rem(42px);
+}
+
+.phoneMonthRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(12px);
+	box-sizing: border-box;
+	min-height: rem(48px);
+	padding: rem(6px) rem(14px);
+	border-top: 1px solid var(--nz-line);
+	color: var(--nz-ink);
+	text-decoration: none;
+}
+
+.phoneMonthMain {
+	display: flex;
+	align-items: center;
+	gap: rem(10px);
+	min-width: 0;
+}
+
+.phoneMonthText {
+	display: flex;
+	flex-direction: column;
+	gap: rem(2px);
+	min-width: 0;
+}
+
+.phoneMonthName {
+	font-size: rem(15px);
+	font-weight: 600;
+}
+
+.phoneMonthNote {
+	color: var(--nz-ink-3);
+	font-size: var(--mantine-font-size-xs);
+}
+
+.phoneMonthSum {
+	font-size: rem(15px);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.phoneYearTotal {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: rem(12px);
+	padding: rem(4px) rem(14px) rem(4px) 0;
+	border-top: 2px solid var(--nz-line-strong);
+
+	& .budgetTitle {
+		padding: rem(10px) rem(14px);
+		font-size: rem(15px);
+		text-transform: none;
+	}
+}

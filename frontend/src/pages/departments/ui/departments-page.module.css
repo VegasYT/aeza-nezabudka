@@ -1,0 +1,144 @@
+/* Кнопка остаётся рядом с заголовком: длинный заголовок переносится сам. */
+.head {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--mantine-spacing-sm);
+	padding-right: var(--mantine-spacing-sm);
+
+	@mixin smaller-than $mantine-breakpoint-sm {
+		gap: rem(6px);
+		padding-right: rem(4px);
+	}
+}
+
+/* На телефоне подпись раздела стоит под списком. */
+.subtitle {
+	padding-left: var(--mantine-spacing-sm);
+}
+
+/* Таблица и строки списка прижаты к краям острова, отступы задают ячейки. */
+.island {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+}
+
+.table {
+	--table-border-color: var(--nz-line);
+
+	font-size: var(--mantine-font-size-md);
+
+	& th {
+		color: var(--nz-ink-3);
+		font-size: var(--mantine-font-size-xs);
+		font-weight: 600;
+	}
+
+	& th:first-child,
+	& td:first-child {
+		padding-left: rem(18px);
+	}
+}
+
+.name {
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.count {
+	color: var(--nz-ink-2);
+	font-variant-numeric: tabular-nums;
+
+	&[data-none] {
+		color: var(--nz-ink-4);
+	}
+}
+
+.actions {
+	white-space: nowrap;
+	text-align: right;
+}
+
+.list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.item {
+	display: flex;
+	align-items: center;
+	gap: rem(2px);
+	padding: rem(8px) rem(4px) rem(8px) rem(14px);
+
+	& + & {
+		border-top: 1px solid var(--nz-line);
+	}
+}
+
+.itemText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: rem(4px);
+	min-width: 0;
+	font-size: var(--mantine-font-size-lg);
+
+	& .count {
+		color: var(--nz-ink-3);
+		font-size: var(--mantine-font-size-sm);
+	}
+}
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: rem(10px);
+	padding: rem(22px) rem(22px) rem(26px);
+}
+
+.pattern {
+	display: block;
+	width: 100%;
+	max-width: rem(420px);
+	height: auto;
+	margin-bottom: rem(6px);
+	border-radius: rem(10px);
+}
+
+.patternKey {
+	fill: var(--nz-logo-key);
+}
+
+.patternAccent {
+	fill: none;
+	stroke: var(--nz-accent);
+	stroke-width: 6;
+}
+
+.patternGlyph {
+	fill: none;
+	stroke: var(--nz-logo-glyph);
+	stroke-width: 6;
+}
+
+.emptyTitle {
+	font-family: var(--mantine-font-family-headings);
+	font-size: rem(17px);
+	font-weight: 800;
+}
+
+.footer {
+	padding: rem(10px) rem(18px);
+	border-top: 1px solid var(--nz-line);
+}
+
+.skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: rem(12px);
+	padding: var(--mantine-spacing-lg);
+}

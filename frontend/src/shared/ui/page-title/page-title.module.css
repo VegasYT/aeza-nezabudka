@@ -1,0 +1,36 @@
+/* Заголовок лежит на холсте над островами, отступы выравнивают его с краем острова. */
+.title {
+	padding: var(--mantine-spacing-sm) var(--mantine-spacing-sm) rem(6px);
+	color: var(--nz-ink);
+	text-transform: uppercase;
+	text-wrap: balance;
+
+	/* На телефоне заголовок помещается в строку с кнопкой действия, как на макетах. */
+	@mixin smaller-than $mantine-breakpoint-sm {
+		font-size: rem(26px);
+	}
+}
+
+/*
+ * Подпись стоит по базовой линии заголовка, а когда соседям в шапке не хватает места - под ним:
+ * в строке шапки блок сжимается до ширины заголовка. На телефоне подпись всегда под заголовком.
+ */
+.heading {
+	display: flex;
+	flex: 1 1 0;
+	flex-wrap: wrap;
+	align-items: baseline;
+	min-width: min-content;
+
+	& .title {
+		padding-right: 0;
+	}
+
+	@mixin smaller-than $mantine-breakpoint-sm {
+		flex-direction: column;
+	}
+}
+
+.note {
+	padding-inline: var(--mantine-spacing-sm);
+}

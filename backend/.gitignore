@@ -1,0 +1,9 @@
+# локальные секреты и окружение
+.env
+.venv/
+
+# кеши инструментов
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

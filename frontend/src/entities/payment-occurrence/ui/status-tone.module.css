@@ -1,0 +1,21 @@
+.tonePaid {
+	color: var(--nz-ink-2);
+}
+
+.toneLate {
+	color: var(--nz-ink-2);
+}
+
+.toneOverdue {
+	font-weight: 600;
+	color: var(--nz-status-overdue-ink);
+}
+
+.toneSoon {
+	font-weight: 600;
+	color: var(--nz-status-soon-ink);
+}
+
+.toneWaiting {
+	color: var(--nz-ink-2);
+}
